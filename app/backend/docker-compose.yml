@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: work_job_postgres
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      # environment values can be provided via .env (env_file) or overridden here
+      POSTGRES_USER: jobs
+      POSTGRES_PASSWORD: 19990
+      POSTGRES_DB: work_job
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # run init scripts on first start (extensions, schema, migrations)
+      - ./src/infra/sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobs -d work_job -h localhost -p 5432"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:

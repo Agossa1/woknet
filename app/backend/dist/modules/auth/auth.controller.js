@@ -1,0 +1,250 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AuthController = void 0;
+// J'assume que RegisterSchema est un schéma Zod exporté
+const auth_schema_1 = require("./auth.schema");
+const geo_service_1 = __importDefault(require("../../infra/geo/geo.service"));
+/**
+ * Wrapper pour capturer les erreurs asynchrones
+ */
+const AsyncHandler = (fn) => (req, res, next) => {
+    Promise.resolve(fn(req, res, next)).catch(next);
+};
+class AuthController {
+    constructor(authService, logger) {
+        this.authService = authService;
+        this.logger = logger;
+        this.register = AsyncHandler(async (req, res) => {
+            try {
+                // 1. VALIDATION RUNTIME (Sécurité)
+                const validationResult = auth_schema_1.registerSchema.safeParse(req.body);
+                if (!validationResult.success) {
+                    return res.status(400).json({
+                        success: false,
+                        message: "Données invalides",
+                        errors: validationResult.error.errors
+                    });
+                }
+                const input = validationResult.data;
+                // 2. Enrichissement des données (sans muter req.body directement)
+                const inputWithMeta = {
+                    ...input,
+                    ip_address: geo_service_1.default.getIpFromRequest(req),
+                    user_agent: req.headers['user-agent'] || 'unknown'
+                };
+                // 3. Appel Service
+                const result = await this.authService.createUser(inputWithMeta);
+                this.logger.instance.info(`Nouvel utilisateur inscrit : ${result.id}`);
+                return res.status(201).json({
+                    success: true,
+                    message: "Utilisateur créé avec succès",
+                    data: result
+                });
+            }
+            catch (error) {
+                // 4. Gestion fine des erreurs
+                this.logger.instance.error("Erreur Inscription:", error);
+                if (error.code === 'USER_ALREADY_EXISTS' || error.message.includes('duplicate')) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "Cet email est déjà utilisé."
+                    });
+                }
+                // Fallback erreur serveur
+                return res.status(500).json({
+                    success: false,
+                    message: "Une erreur interne est survenue."
+                });
+            }
+        });
+        // Logique de connexion de l'utilisateur
+        this.login = AsyncHandler(async (req, res) => {
+            const validationResult = auth_schema_1.loginSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Données invalides",
+                    errors: validationResult.error.errors
+                });
+            }
+            const input = validationResult.data;
+            const inputWithMeta = {
+                ...input,
+                ip_address: geo_service_1.default.getIpFromRequest(req),
+                user_agent: req.headers['user-agent'] || 'unknown'
+            };
+            const { accessToken, refreshToken, ...user } = await this.authService.loginUser(inputWithMeta);
+            this.setTokenCookies(res, { accessToken, refreshToken });
+            this.logger.instance.info(`Utilisateur connecté : ${user.id} depuis IP ${inputWithMeta.ip_address}`);
+            return res.status(200).json({
+                success: true,
+                message: "Connexion réussie",
+                data: user
+            });
+        });
+        // Logique de déconnexion de l'utilisateur
+        this.logout = AsyncHandler(async (req, res) => {
+            res.clearCookie('access_token');
+            res.clearCookie('refresh_token');
+            return res.status(200).json({
+                success: true,
+                message: "Déconnexion réussie"
+            });
+        });
+        // Refresh token
+        this.refreshToken = AsyncHandler(async (req, res) => {
+            const refreshToken = req.cookies['refresh_token'];
+            if (!refreshToken) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Refresh token is required"
+                });
+            }
+            // Appel du service pour rafraîchir les tokens
+            const tokens = await this.authService.refreshToken(refreshToken);
+            // Mettre à jour les cookies
+            this.setTokenCookies(res, tokens);
+            return res.status(200).json({
+                success: true,
+                message: "Tokens rafraîchis avec succès",
+            });
+        });
+        // VerifyAccount 
+        this.verifyAccount = AsyncHandler(async (req, res) => {
+            // Validation des données entrantes
+            const validationResult = auth_schema_1.verifyOtpSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Données invalides",
+                    errors: validationResult.error.errors
+                });
+            }
+            const input = validationResult.data;
+            // Appel du service pour vérifier le compte
+            await this.authService.verifyAccount(input);
+            return res.status(200).json({
+                success: true,
+                message: "Compte vérifié avec succès"
+            });
+        });
+        // Resend Code OTP  
+        this.resendOtp = AsyncHandler(async (req, res) => {
+            const identifier = req.body.email || req.body.phone_number;
+            if (!identifier) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Email ou numéro de téléphone requis"
+                });
+            }
+            // Appel du service pour renvoyer le code OTP
+            await this.authService.resendOtp(identifier);
+            // Toujours retourner un succès pour éviter de révéler l'existence du compte
+            this.logger.instance.info(`OTP renvoyé pour : ${identifier}`);
+            return res.status(200).json({
+                success: true,
+                message: "Si un compte existe, un code OTP a été renvoyé."
+            });
+        });
+        // Forgot Password
+        this.forgotPassword = AsyncHandler(async (req, res) => {
+            const validationResult = auth_schema_1.forgotPasswordSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Données invalides",
+                    errors: validationResult.error.errors
+                });
+            }
+            const input = validationResult.data;
+            // Appel du service pour initier le processus de réinitialisation du mot de passe
+            await this.authService.forgotPassword(input);
+            // Toujours retourner un succès pour éviter de révéler l'existence du compte
+            this.logger.instance.info(`Processus de réinitialisation du mot de passe initié pour : ${input.email || input.phone_number}`);
+            return res.status(200).json({
+                success: true,
+                message: "Si un compte existe, des instructions ont été envoyées pour réinitialiser le mot de passe."
+            });
+        });
+        // Reset Password
+        this.resetPasswordControllers = AsyncHandler(async (req, res) => {
+            const validationResult = auth_schema_1.resetPasswordSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Données invalides",
+                    errors: validationResult.error.errors
+                });
+            }
+            const input = validationResult.data;
+            // Appel du service pour réinitialiser le mot de passe
+            await this.authService.resetPassword(input);
+            this.logger.instance.info(`Mot de passe réinitialisé pour : ${input.email}`);
+            return res.status(200).json({
+                success: true,
+                message: "Mot de passe réinitialisé avec succès"
+            });
+        });
+        // Update Password
+        this.updatePasswordControllers = AsyncHandler(async (req, res) => {
+            const validationResult = auth_schema_1.resetPasswordSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Données invalides",
+                    errors: validationResult.error.errors
+                });
+            }
+            const input = validationResult.data;
+            // Appel du service pour mettre à jour le mot de passe
+            await this.authService.updatePassword(input);
+            this.logger.instance.info(`Mot de passe mis à jour pour : ${input.email}`);
+            return res.status(200).json({
+                success: true,
+                message: "Mot de passe mis à jour avec succès"
+            });
+        });
+        // verifyOtpPasswordControllers
+        this.verifyOtpPasswordControllers = AsyncHandler(async (req, res) => {
+            const validationResult = auth_schema_1.verifyOtpSchema.safeParse(req.body);
+            if (!validationResult.success) {
+                return res.status(400).json({
+                    success: false,
+                    message: "Données invalides",
+                    errors: validationResult.error.errors
+                });
+            }
+            const input = validationResult.data;
+            // Appel du service pour vérifier le code OTP et réinitialiser le mot de passe
+            await this.authService.verifyResetOpt(input);
+            this.logger.instance.info(`OTP vérifié et mot de passe réinitialisé pour : ${input.email}`);
+            return res.status(200).json({
+                success: true,
+                message: "OTP vérifié et mot de passe réinitialisé avec succès"
+            });
+        });
+    }
+    setTokenCookies(res, token) {
+        const isProd = process.env.NODE_ENV === 'production';
+        // Bonne pratique : Extraire la config cookie
+        const cookieOptions = {
+            httpOnly: true,
+            secure: isProd, // Nécessaire pour SameSite: None
+            sameSite: isProd ? 'none' : 'lax',
+            path: '/',
+        };
+        res.cookie('access_token', token.accessToken, {
+            ...cookieOptions,
+            maxAge: 15 * 60 * 1000,
+        });
+        res.cookie('refresh_token', token.refreshToken, {
+            ...cookieOptions,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+    }
+}
+exports.AuthController = AuthController;
+//# sourceMappingURL=auth.controller.js.map
