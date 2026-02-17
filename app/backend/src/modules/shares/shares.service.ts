@@ -18,14 +18,16 @@ export class SharesService {
             // We need the original author ID
             const post = await this.repository.findPostById(dto.post_id);
             if (post) {
-                await this.notificationsService.createNotification({
+                const notification = await this.notificationsService.createNotification({
                     recipient_id: post.profile_id,
                     sender_id: dto.profile_id,
                     type: NotificationType.POST_SHARE,
                     item_id: dto.post_id,
                     content: dto.caption
                 });
-                socketService.emitToUser(post.profile_id, 'new_notification', {});
+                if (notification) {
+                    socketService.emitToUser(post.profile_id, 'new_notification', notification);
+                }
             }
         }
 

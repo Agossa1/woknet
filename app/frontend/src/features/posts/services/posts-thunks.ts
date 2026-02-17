@@ -24,6 +24,17 @@ export const fetchProfilePostsThunk = createAsyncThunk(
     }
 );
 
+export const fetchCompanyPostsThunk = createAsyncThunk(
+    "posts/fetchCompanyPosts",
+    async (companyId: string, { rejectWithValue }) => {
+        try {
+            return { companyId, posts: await postsApi.getCompanyPosts(companyId) };
+        } catch (error: any) {
+            return rejectWithValue(error.userMessage || error.message || "Failed to fetch company posts");
+        }
+    }
+);
+
 export const createPostThunk = createAsyncThunk(
     "posts/createPost",
     async ({ dto, onProgress }: { dto: CreatePostDTO; onProgress?: (ev: ProgressEvent) => void }, { rejectWithValue }) => {
@@ -37,10 +48,10 @@ export const createPostThunk = createAsyncThunk(
 
 export const toggleLikeThunk = createAsyncThunk(
     "posts/toggleLike",
-    async ({ postId, profileId }: { postId: string; profileId: string }, { rejectWithValue }) => {
+    async ({ postId, profileId, reactionType }: { postId: string; profileId: string; reactionType?: string }, { rejectWithValue }) => {
         try {
-            const result = await postsApi.toggleLike(postId, profileId);
-            return { postId, liked: result.liked };
+            const result = await postsApi.toggleLike(postId, profileId, reactionType);
+            return { postId, liked: result.liked, reactionType: reactionType || 'LIKE' };
         } catch (error: any) {
             return rejectWithValue(error.userMessage || error.message || "Failed to toggle like");
         }
@@ -55,6 +66,40 @@ export const deletePostThunk = createAsyncThunk(
             return postId;
         } catch (error: any) {
             return rejectWithValue(error.userMessage || error.message || "Failed to delete post");
+        }
+    }
+);
+
+export const updatePostThunk = createAsyncThunk(
+    "posts/updatePost",
+    async ({ dto, onProgress }: { dto: UpdatePostDTO; onProgress?: (ev: ProgressEvent) => void }, { rejectWithValue }) => {
+        try {
+            return await postsApi.updatePost(dto, onProgress);
+        } catch (error: any) {
+            return rejectWithValue(error.userMessage || error.message || "Failed to update post");
+        }
+    }
+);
+
+export const toggleSavePostThunk = createAsyncThunk(
+    "posts/toggleSavePost",
+    async (postId: string, { rejectWithValue }) => {
+        try {
+            const result = await postsApi.toggleSavePost(postId);
+            return { postId, saved: result.saved };
+        } catch (error: any) {
+            return rejectWithValue(error.userMessage || error.message || "Failed to toggle save post");
+        }
+    }
+);
+
+export const fetchSavedPostsThunk = createAsyncThunk(
+    "posts/fetchSavedPosts",
+    async (_, { rejectWithValue }) => {
+        try {
+            return await postsApi.getSavedPosts();
+        } catch (error: any) {
+            return rejectWithValue(error.userMessage || error.message || "Failed to fetch saved posts");
         }
     }
 );

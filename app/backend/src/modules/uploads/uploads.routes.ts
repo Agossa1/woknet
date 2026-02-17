@@ -26,6 +26,13 @@ router.post(
     uploadController.uploadProfileImage
 );
 
+router.post(
+    '/task-attachment',
+    AuthGuard.authenticate as any,
+    upload.single('file'),
+    uploadController.uploadProfileImage // Reusing the same logic
+);
+
 router.get(
     '/signature',
     AuthGuard.authenticate as any,

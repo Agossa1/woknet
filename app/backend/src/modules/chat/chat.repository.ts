@@ -77,9 +77,17 @@ export class ChatRepository {
 
     async createMessage(dto: CreateMessageDTO): Promise<Message> {
         const sql = `
-            INSERT INTO messages (conversation_id, sender_id, content, type, metadata)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *
+            WITH inserted AS (
+                INSERT INTO messages (conversation_id, sender_id, content, type, metadata)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+            )
+            SELECT 
+                i.*,
+                p.display_name as sender_name,
+                p.avatar_url as sender_avatar
+            FROM inserted i
+            JOIN profiles p ON i.sender_id = p.user_id;
         `;
         const result = await this.db.query<Message>(sql, [
             dto.conversation_id,

@@ -10,6 +10,8 @@ import { EducationsModule } from "../modules/educations/educations.module";
 import uploadRoutes from "../modules/uploads/uploads.routes";
 import { SkillsModule } from "../modules/skills/skills.module";
 import { ProjectsModule } from "../modules/projects/projects.module";
+import { WorkspacesModule } from "../modules/workspaces/workspaces.modules";
+import { CompaniesModule } from "../modules/companies/companies.modules";
 
 const router = Router();
 
@@ -92,5 +94,23 @@ router.use('/shares', sharesModule.getRouter());
 import { ChatModule } from "../modules/chat/chat.module";
 const chatModule = new ChatModule();
 router.use('/chat', chatModule.getRouter());
+
+// Saved Posts
+import { createSavedPostsModule } from "../modules/saved-posts";
+const savedPostsModule = createSavedPostsModule(database, logger);
+router.use('/saved-posts', savedPostsModule.router);
+
+// Workspaces
+const workspacesModule = new WorkspacesModule();
+router.use('/workspaces', workspacesModule.getRouter());
+
+// Companies
+const companiesModule = new CompaniesModule();
+router.use('/companies', companiesModule.getRouter());
+
+// Jobs
+import { JobsModule } from "../modules/jobs/jobs.modules";
+const jobsModule = new JobsModule();
+router.use('/jobs', jobsModule.getRouter());
 
 export default router;

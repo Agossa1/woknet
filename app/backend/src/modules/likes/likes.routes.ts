@@ -13,6 +13,7 @@ export class LikesRouter {
     private initRoutes(): void {
         this.router.post("/toggle", AuthGuard.authenticate, this.controller.toggle);
         this.router.get("/check/:postId", AuthGuard.authenticate, this.controller.check);
+        this.router.get("/:postId", AuthGuard.authenticate, this.controller.getPostLikes);
     }
 
     public getRouter(): Router {

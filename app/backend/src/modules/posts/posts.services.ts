@@ -73,14 +73,17 @@ export class PostsServices {
         return this.repository.findAllByProfileId(profileId, currentProfileId);
     }
 
+    async getCompanyPosts(companyId: string, currentProfileId?: string): Promise<Post[]> {
+        return this.repository.findAllByCompanyId(companyId, currentProfileId);
+    }
+
     async getFeed(page: number = 1, limit: number = 20, currentProfileId?: string): Promise<Post[]> {
         const offset = (page - 1) * limit;
+        const userCacheKey = currentProfileId ? `${this.FEED_CACHE_KEY}:${currentProfileId}` : this.FEED_CACHE_KEY;
 
-        // Cache only the first page and for non-authenticated or base feed if possible
-        // Note: With personalized isLiked, we might want to skip cache or use user-specific cache
-        // For now, let's keep it simple and skip cache if currentProfileId is present to ensure accuracy
-        if (page === 1 && limit === 20 && !currentProfileId) {
-            const cachedFeed = await this.redis.get(this.FEED_CACHE_KEY);
+        // Cache only the first page
+        if (page === 1 && limit === 20) {
+            const cachedFeed = await this.redis.get(userCacheKey);
             if (cachedFeed) {
                 return JSON.parse(cachedFeed);
             }
@@ -88,9 +91,10 @@ export class PostsServices {
 
         const posts = await this.repository.findFeed(limit, offset, currentProfileId);
 
-        if (page === 1 && limit === 20 && !currentProfileId) {
-            // Cache for 10 minutes
-            await this.redis.set(this.FEED_CACHE_KEY, JSON.stringify(posts), { EX: 600 });
+        if (page === 1 && limit === 20) {
+            // Cache for 2 minutes for authenticated users, 10 minutes for guest
+            const ttl = currentProfileId ? 120 : 600;
+            await this.redis.set(userCacheKey, JSON.stringify(posts), { EX: ttl });
         }
 
         return posts;

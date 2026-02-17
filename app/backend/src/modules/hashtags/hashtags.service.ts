@@ -9,6 +9,9 @@ export class HashtagsService {
     }
 
     async getTrending(limit: number = 10) {
+        // Simple caching logic could go here, but since this service is often
+        // instantiated fresh, we'd need a shared Redis instance.
+        // For now, let's just make sure the repository query is fast.
         return this.repository.getTrending(limit);
     }
 

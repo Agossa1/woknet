@@ -32,34 +32,82 @@ export class LikesServices {
             let liked = false;
             let likesCount = 0;
 
-            if (alreadyLiked) {
+            // If a specific reaction is provided, always ADD/UPDATE
+            if (dto.reaction_type && dto.reaction_type !== 'LIKE' as any) {
+                await this.repository.addLike(dto);
+                if (!alreadyLiked) {
+                    likesCount = await this.postsRepository.incrementLikes(dto.post_id);
+                } else {
+                    const post = await this.postsRepository.findById(dto.post_id);
+                    likesCount = post?.likes_count || 0;
+                }
+                await this.redis.set(cacheKey, "true", { EX: 3600 });
+                await this.redis.del(`post:${dto.post_id}`);
+                await this.redis.del("posts:feed:latest");
+                liked = true;
+
+                // TRIGGER NOTIFICATION: POST_LIKE (with specific reaction)
+                if (this.notificationsService) {
+                    const post = await this.postsRepository.findById(dto.post_id);
+                    if (post) {
+                        const notification = await this.notificationsService.createNotification({
+                            recipient_id: post.profile_id,
+                            sender_id: dto.profile_id,
+                            type: NotificationType.POST_LIKE,
+                            item_id: dto.post_id,
+                            content: dto.reaction_type
+                        });
+                        if (notification) {
+                            socketService.emitToUser(post.profile_id, 'new_notification', notification);
+                        }
+                    }
+                }
+            } else if (alreadyLiked) {
+                // Toggle off
                 await this.repository.removeLike(dto as any);
                 likesCount = await this.postsRepository.decrementLikes(dto.post_id);
                 await this.redis.del(cacheKey);
                 await this.redis.del(`post:${dto.post_id}`);
+                await this.redis.del("posts:feed:latest");
                 liked = false;
             } else {
+                // Add new LIKE reaction
+                const reactionType = dto.reaction_type || 'LIKE' as any;
+                await this.repository.addLike({ ...dto, reaction_type: reactionType });
+                likesCount = await this.postsRepository.incrementLikes(dto.post_id);
                 await this.redis.set(cacheKey, "true", { EX: 3600 });
                 await this.redis.del(`post:${dto.post_id}`);
+                await this.redis.del("posts:feed:latest");
                 liked = true;
 
                 // TRIGGER NOTIFICATION: POST_LIKE
                 if (this.notificationsService) {
                     const post = await this.postsRepository.findById(dto.post_id);
                     if (post) {
-                        await this.notificationsService.createNotification({
+                        const notification = await this.notificationsService.createNotification({
                             recipient_id: post.profile_id,
                             sender_id: dto.profile_id,
                             type: NotificationType.POST_LIKE,
                             item_id: dto.post_id
                         });
-                        socketService.emitToUser(post.profile_id, 'new_notification', {});
+                        if (notification) {
+                            socketService.emitToUser(post.profile_id, 'new_notification', notification);
+                        }
                     }
                 }
             }
 
-            // Real-time update
-            socketService.emit('post_liked', { postId: dto.post_id, liked, likesCount }, 'feed');
+            // Get all unique reaction types for real-time update
+            const reactionCounts = await this.repository.getPostReactionCounts(dto.post_id);
+            const reactionTypes = Object.keys(reactionCounts);
+
+            socketService.emit('post_liked', {
+                postId: dto.post_id,
+                liked,
+                likesCount,
+                reactionType: liked ? (dto.reaction_type || 'LIKE') : undefined,
+                reactionTypes
+            }, 'feed');
             return { liked };
         } else {
             // Comment Like
@@ -82,24 +130,28 @@ export class LikesServices {
                 if (this.notificationsService) {
                     const comment = await this.commentsRepository.findById(dto.comment_id!);
                     if (comment) {
-                        await this.notificationsService.createNotification({
+                        const notification = await this.notificationsService.createNotification({
                             recipient_id: comment.profile_id,
                             sender_id: dto.profile_id,
                             type: NotificationType.COMMENT_LIKE,
                             item_id: comment.id,
-                            content: comment.post_id // We store postId in content for easier navigation
+                            content: comment.post_id
                         });
-                        socketService.emitToUser(comment.profile_id, 'new_notification', {});
+                        if (notification) {
+                            socketService.emitToUser(comment.profile_id, 'new_notification', notification);
+                        }
                     }
                 }
             }
 
-            // To efficiently find the comment on frontend, we need the postId
             const comment = await this.commentsRepository.findById(dto.comment_id!);
-            const postId = comment?.post_id;
-            const parentId = comment?.parent_id;
-
-            socketService.emit('comment_liked', { commentId: dto.comment_id, liked, likesCount, postId, parentId }, 'feed');
+            socketService.emit('comment_liked', {
+                commentId: dto.comment_id,
+                liked,
+                likesCount,
+                postId: comment?.post_id,
+                parentId: comment?.parent_id
+            }, 'feed');
             return { liked };
         }
     }
@@ -120,5 +172,9 @@ export class LikesServices {
             await this.redis.set(cacheKey, "true", { EX: 3600 });
         }
         return liked;
+    }
+
+    async getPostLikesWithUsers(postId: string) {
+        return this.repository.getPostLikesWithUsers(postId);
     }
 }

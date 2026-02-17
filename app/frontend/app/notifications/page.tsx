@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { fetchNotificationsThunk, markAllReadThunk, markAsReadThunk, deleteNotificationThunk } from '@/src/features/notifications/services/notifications-thunks';
 import { NotificationType } from '@/src/features/notifications/services/notifications-types';
-import { Heart, MessageSquare, Share2, UserPlus, Bell, Trash2, Check, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Bell, Trash2, CheckCircle, Briefcase, MessageSquare, AtSign } from 'lucide-react';
+import { setActiveConversation } from '@/src/features/chat/services/chat-slice';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -12,6 +13,7 @@ import { fr } from 'date-fns/locale';
 export default function NotificationsPage() {
     const dispatch = useAppDispatch();
     const { notifications, loading } = useAppSelector((state) => state.notifications);
+    const [filter, setFilter] = useState<'ALL' | 'JOBS' | 'POSTS' | 'MENTIONS'>('ALL');
 
     useEffect(() => {
         dispatch(fetchNotificationsThunk({ limit: 50 }));
@@ -29,111 +31,172 @@ export default function NotificationsPage() {
         }
     };
 
-    const getIcon = (type: NotificationType) => {
-        switch (type) {
-            case NotificationType.POST_LIKE:
-            case NotificationType.COMMENT_LIKE:
-                return <Heart size={18} className="text-pink-500 fill-pink-500" />;
-            case NotificationType.POST_COMMENT:
-                return <MessageSquare size={18} className="text-blue-500 fill-blue-500" />;
-            case NotificationType.POST_SHARE:
-                return <Share2 size={18} className="text-green-500" />;
-            case NotificationType.NEW_FOLLOW:
-                return <UserPlus size={18} className="text-purple-500" />;
-            default:
-                return <Bell size={18} className="text-gray-500" />;
-        }
-    };
+    // Filter logic
+    const filteredNotifications = notifications.filter(n => {
+        if (filter === 'ALL') return true;
+        if (filter === 'JOBS') return false; // Todo: Add Job type
+        if (filter === 'POSTS') return [NotificationType.POST_LIKE, NotificationType.POST_COMMENT, NotificationType.POST_SHARE, NotificationType.COMMENT_LIKE].includes(n.type);
+        if (filter === 'MENTIONS') return [NotificationType.POST_COMMENT, NotificationType.NEW_MESSAGE].includes(n.type);
+        return true;
+    });
 
     const renderNotificationContent = (notification: any) => {
-        const senderName = <span className="font-bold text-gray-900 dark:text-gray-100">{notification.sender_name}</span>;
+        const senderName = <span className="font-semibold text-gray-900 dark:text-gray-100">{notification.sender_name}</span>;
+
+        // Helper for summary text
+        const Summary = ({ children }: { children: React.ReactNode }) => (
+            <span className="text-gray-600 dark:text-gray-300">{children}</span>
+        );
 
         switch (notification.type) {
             case NotificationType.POST_LIKE:
-                return <>{senderName} a aimé votre publication</>;
+                return <>{senderName} <Summary>a aimé votre publication.</Summary></>;
             case NotificationType.COMMENT_LIKE:
-                return <>{senderName} a aimé votre commentaire</>;
+                return <>{senderName} <Summary>a aimé votre commentaire.</Summary></>;
             case NotificationType.POST_COMMENT:
-                return <>{senderName} a commenté votre publication : <span className="text-gray-500 block mt-1">"{notification.content}"</span></>;
+                return (
+                    <div className="flex flex-col gap-1">
+                        <span>{senderName} <Summary>a commenté votre publication :</Summary></span>
+                        <span className="text-gray-500 dark:text-gray-400 line-clamp-2 text-sm pl-2 border-l-2 border-gray-200 dark:border-gray-700">
+                            "{notification.content}"
+                        </span>
+                    </div>
+                );
             case NotificationType.POST_SHARE:
-                return <>{senderName} a partagé votre publication</>;
+                return <>{senderName} <Summary>a partagé votre publication.</Summary></>;
             case NotificationType.NEW_FOLLOW:
-                return <>{senderName} a commencé à vous suivre</>;
+                return <>{senderName} <Summary>a commencé à vous suivre.</Summary></>;
+            case NotificationType.NEW_MESSAGE:
+                return <>{senderName} <Summary>vous a envoyé un message.</Summary></>;
             default:
-                return <>{senderName} vous a envoyé une notification</>;
+                return <>{senderName} <Summary>vous a envoyé une notification.</Summary></>;
         }
     };
 
     return (
-        <div className="max-w-2xl mx-auto py-8 px-4">
-            <div className="flex items-center justify-between mb-8">
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Notifications</h1>
+        <div className="max-w-3xl mx-auto py-6 px-4 font-sans">
+
+            {/* Filter Tabs */}
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2 scrollbar-hide">
                 <button
-                    onClick={handleMarkAllRead}
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-full transition-colors"
+                    onClick={() => setFilter('ALL')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${filter === 'ALL' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
                 >
-                    <Check size={16} /> Tout marquer comme lu
+                    Toutes
+                </button>
+                <button
+                    onClick={() => setFilter('JOBS')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${filter === 'JOBS' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                    Offres d'emploi
+                </button>
+                <button
+                    onClick={() => setFilter('POSTS')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${filter === 'POSTS' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                    Mes posts
+                </button>
+                <button
+                    onClick={() => setFilter('MENTIONS')}
+                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${filter === 'MENTIONS' ? 'bg-green-700 text-white border-green-700' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+                >
+                    Mentions
                 </button>
             </div>
 
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
-                {loading && notifications.length === 0 ? (
-                    <div className="p-20 text-center">
-                        <Loader2 className="animate-spin mx-auto text-blue-500 mb-4" size={32} />
-                        <p className="text-gray-500">Chargement de vos notifications...</p>
-                    </div>
-                ) : notifications.length === 0 ? (
-                    <div className="p-20 text-center">
-                        <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <Bell size={32} className="text-gray-300 dark:text-gray-600" />
-                        </div>
-                        <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">Tout est calme ici</h2>
-                        <p className="text-gray-500">Vous n'avez aucune notification pour le moment.</p>
+            {/* Notifications List Card */}
+            <div className="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden">
+                {loading && filteredNotifications.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">Chargement...</div>
+                ) : filteredNotifications.length === 0 ? (
+                    <div className="p-12 text-center flex flex-col items-center opacity-60">
+                        <Bell size={48} className="text-gray-300 dark:text-gray-600 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Aucune notification</h3>
+                        <p className="text-gray-500">Vous êtes à jour !</p>
                     </div>
                 ) : (
                     <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                        {notifications.map((notification) => (
+                        {filteredNotifications.map((notification) => (
                             <div
                                 key={notification.id}
-                                className={`group flex items-start gap-4 p-5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors relative ${!notification.is_read ? 'bg-blue-50/20 dark:bg-blue-900/5' : ''}`}
+                                className={`relative group flex gap-4 p-4 transition-colors ${!notification.is_read ? 'bg-blue-50/50 dark:bg-blue-900/10' : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'}`}
                             >
+                                {/* Unread Indicator */}
                                 {!notification.is_read && (
-                                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-blue-500" />
+                                    <div className="absolute left-2 top-1/2 -translate-y-1/2 w-2 h-2 bg-blue-600 rounded-full" />
                                 )}
 
-                                <Link href={`/profile/${notification.sender_id}`} className="shrink-0">
-                                    <div className="relative">
+                                {/* Start of Clickable Area */}
+                                <div className="flex-1 flex gap-3 min-w-0">
+                                    <Link href={`/profile/${notification.sender_id}`} className="shrink-0">
                                         <img
                                             src={notification.sender_avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${notification.sender_name}`}
                                             alt={notification.sender_name}
-                                            className="w-12 h-12 rounded-full border border-gray-100 dark:border-gray-800 object-cover"
+                                            className="w-12 h-12 rounded-full object-cover border border-gray-200 dark:border-gray-700"
                                         />
-                                        <div className="absolute -bottom-1 -right-1 bg-white dark:bg-gray-900 rounded-full p-1 shadow-sm border border-gray-100 dark:border-gray-800">
-                                            {getIcon(notification.type)}
+                                    </Link>
+
+                                    <div className="flex-1 min-w-0 pt-0.5">
+                                        <Link
+                                            href={
+                                                notification.type === NotificationType.NEW_FOLLOW
+                                                    ? `/profile/${notification.sender_id}`
+                                                    : notification.type === NotificationType.NEW_MESSAGE
+                                                        ? '/messages'
+                                                        : '/feed'
+                                            }
+                                            onClick={() => {
+                                                dispatch(markAsReadThunk(notification.id));
+                                                if (notification.type === NotificationType.NEW_MESSAGE && notification.item_id) {
+                                                    dispatch(setActiveConversation(notification.item_id));
+                                                }
+                                            }}
+                                            className="block"
+                                        >
+                                            <div className="text-[15px] leading-snug">
+                                                {renderNotificationContent(notification)}
+                                            </div>
+
+                                            {/* Preview box for certain types could go here if we had metadata */}
+                                            {/* Example: Job Offer Preview Placeholder */}
+                                            {/* <div className="mt-2 border rounded-md p-3 flex gap-3 items-center bg-white dark:bg-gray-800 max-w-md">...</div> */}
+
+                                        </Link>
+                                    </div>
+                                </div>
+
+                                {/* Meta & Actions */}
+                                <div className="flex flex-col items-end gap-1 shrink-0 pt-1">
+                                    <span className="text-xs text-gray-400 whitespace-nowrap">
+                                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: false, locale: fr })
+                                            .replace('environ ', '')
+                                            .replace(' moins de', '')
+                                        }
+                                    </span>
+
+                                    <div className="relative group/menu">
+                                        <button className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                                            <MoreHorizontal size={20} />
+                                        </button>
+
+                                        {/* Dropdown Menu */}
+                                        <div className="absolute right-0 top-full mt-1 w-48 bg-white dark:bg-gray-900 rounded-lg shadow-xl border border-gray-100 dark:border-gray-800 py-1 hidden group-hover/menu:block hover:block z-10 origin-top-right">
+                                            <button
+                                                onClick={(e) => handleDelete(notification.id, e)}
+                                                className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2"
+                                            >
+                                                <Trash2 size={14} /> Supprimer
+                                            </button>
+                                            {!notification.is_read && (
+                                                <button
+                                                    onClick={() => dispatch(markAsReadThunk(notification.id))}
+                                                    className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                                                >
+                                                    <CheckCircle size={14} /> Marquer comme lu
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
-                                </Link>
-
-                                <div className="flex-1 min-w-0">
-                                    <div className="flex justify-between items-start gap-2">
-                                        <Link
-                                            href={notification.type === NotificationType.NEW_FOLLOW ? `/profile/${notification.sender_id}` : `/feed`}
-                                            onClick={() => dispatch(markAsReadThunk(notification.id))}
-                                            className="text-gray-700 dark:text-gray-300 leading-normal block hover:underline underline-offset-2 decoration-gray-400"
-                                        >
-                                            {renderNotificationContent(notification)}
-                                        </Link>
-                                        <button
-                                            onClick={(e) => handleDelete(notification.id, e)}
-                                            className="opacity-0 group-hover:opacity-100 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-full transition-all"
-                                            title="Supprimer"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                    <p className="text-xs text-gray-400 mt-2 font-medium">
-                                        {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: fr })}
-                                    </p>
                                 </div>
                             </div>
                         ))}
@@ -142,9 +205,14 @@ export default function NotificationsPage() {
             </div>
 
             {notifications.length > 0 && (
-                <p className="text-center text-gray-400 text-xs mt-8">
-                    Vous avez vu toutes vos notifications récentes.
-                </p>
+                <div className="mt-4 text-center">
+                    <button
+                        onClick={handleMarkAllRead}
+                        className="text-sm text-green-700 hover:text-green-800 dark:text-green-500 font-medium hover:underline"
+                    >
+                        Tout marquer comme lu
+                    </button>
+                </div>
             )}
         </div>
     );

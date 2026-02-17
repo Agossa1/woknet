@@ -41,12 +41,14 @@ export class FollowsServices {
 
             // TRIGGER NOTIFICATION: NEW_FOLLOW
             if (this.notificationsService) {
-                await this.notificationsService.createNotification({
+                const notification = await this.notificationsService.createNotification({
                     recipient_id: dto.following_id,
                     sender_id: dto.follower_id,
                     type: NotificationType.NEW_FOLLOW
                 });
-                socketService.emitToUser(dto.following_id, 'new_notification', {});
+                if (notification) {
+                    socketService.emitToUser(dto.following_id, 'new_notification', notification);
+                }
             }
 
             // Real-time update (notify the person being followed)

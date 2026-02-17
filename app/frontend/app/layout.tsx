@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Shell } from "@/src/components/layout/shell";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -50,6 +51,7 @@ export default function RootLayout({
             {children}
           </Shell>
         </Providers>
+        <Toaster position="top-right" richColors />
       </body>
     </html>
   );

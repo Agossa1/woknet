@@ -2,6 +2,7 @@
 export interface ProfileData {
     user_id: string;
     username: string;
+    full_name?: string;
     display_name: string;
     avatar_url: string;
     banner_url: string;

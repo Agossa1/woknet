@@ -13,6 +13,8 @@ import hashtagsReducer from '@/src/features/hashtags/services/hashtags-slice';
 import sharesReducer from '@/src/features/shares/services/shares-slice';
 import notificationsReducer from '@/src/features/notifications/services/notifications-slice';
 import { chatReducer } from '../features/chat/services/chat-slice';
+import workspacesReducer from "../features/workspaces/services/workspaces-slice";
+import companiesReducer from "../features/companies/services/companies-slice";
 
 const rootReducer = combineReducers({
     auth: authReducer,
@@ -28,7 +30,9 @@ const rootReducer = combineReducers({
     hashtags: hashtagsReducer,
     shares: sharesReducer,
     notifications: notificationsReducer,
-    chat: chatReducer
+    chat: chatReducer,
+    workspaces: workspacesReducer,
+    companies: companiesReducer
 })
 
 

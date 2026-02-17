@@ -6,7 +6,7 @@ import { fetchConversationsThunk, fetchMessagesThunk, sendMessageThunk, markRead
 import { setActiveConversation } from '@/src/features/chat/services/chat-slice';
 import { Conversation, ChatParticipant, ChatMessage } from '@/src/features/chat/services/chat-types';
 import { useSocket } from '@/src/infra/realtime/socket-provider';
-import { useChatRealtime } from '@/src/features/chat/hooks/useChatRealtime';
+
 import { Search, Send, Plus, Phone, Video, ChevronLeft, Loader2, MessageSquare, CheckCheck, Info, Image as ImageIcon, FileText, Smile, Link as LinkIcon, Download, MoreVertical, X } from "lucide-react";
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,13 +28,12 @@ export default function MessagesPage() {
   const [showStickers, setShowStickers] = useState(false);
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [linkUrl, setLinkUrl] = useState("");
+
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { socket } = useSocket();
-
-  // Initialisation du temps réel
-  useChatRealtime();
 
   useEffect(() => {
     dispatch(fetchConversationsThunk());

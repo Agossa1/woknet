@@ -38,8 +38,8 @@ async function runMigrations() {
         // Codes: 42501 (permission denied), 42704 (object not found), 58P01 (file not found), 0A000 (feature not supported)
         if (stmt.toUpperCase().includes('CREATE EXTENSION') && ['42501', '42704', '58P01', '0A000'].includes(err.code)) {
           console.warn(`⚠️  Skipping extension (${err.code}): ${stmt.substring(0, 50)}...`);
-        } else if (err.code === '42P07') {
-          console.warn(`⚠️  Skipping existing relation (${err.code}): ${stmt.substring(0, 50)}...`);
+        } else if (err.code === '42P07' || err.code === '42710') {
+          console.warn(`⚠️  Skipping existing relation or trigger (${err.code}): ${stmt.substring(0, 50)}...`);
         } else {
           console.error(`Error executing statement in ${file}:`, stmt);
           throw err;

@@ -5,6 +5,7 @@ import { ChatRepository } from "./chat.repository";
 import { ChatService } from "./chat.service";
 import { ChatController } from "./chat.controller";
 import { chatRoutes } from "./chat.routes";
+import { notificationsModule } from "../../routes";
 
 export class ChatModule {
     private readonly router: Router;
@@ -13,7 +14,7 @@ export class ChatModule {
         const db = new PostgresDatabase();
         const logger = new Logger();
         const repository = new ChatRepository(db as any, logger);
-        const service = new ChatService(repository, logger);
+        const service = new ChatService(repository, logger, notificationsModule.getService());
         const controller = new ChatController(service, logger);
         this.router = chatRoutes(controller);
     }

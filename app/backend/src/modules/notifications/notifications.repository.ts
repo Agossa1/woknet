@@ -6,9 +6,17 @@ export class NotificationsRepository {
 
     async create(dto: CreateNotificationDTO): Promise<Notification> {
         const sql = `
-            INSERT INTO notifications (recipient_id, sender_id, type, item_id, content)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *;
+            WITH inserted AS (
+                INSERT INTO notifications (recipient_id, sender_id, type, item_id, content)
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+            )
+            SELECT 
+                i.*,
+                p.display_name as sender_name,
+                p.avatar_url as sender_avatar
+            FROM inserted i
+            LEFT JOIN profiles p ON i.sender_id = p.user_id;
         `;
         const values = [dto.recipient_id, dto.sender_id, dto.type, dto.item_id, dto.content];
         const { rows } = await this.pool.query(sql, values);

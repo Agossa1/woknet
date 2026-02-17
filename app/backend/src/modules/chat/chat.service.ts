@@ -3,11 +3,14 @@ import { ChatRepository } from "./chat.repository";
 import { CreateMessageDTO, CreateConversationDTO, Message } from "./chat.types";
 import { socketService } from "../../infra/realtime/socket.service";
 import { LinkPreviewService } from "../../utils/link-preview.service";
+import { NotificationType } from "../notifications/notifications.types";
+import { NotificationsService } from "../notifications/notifications.services";
 
 export class ChatService {
     constructor(
         private readonly repository: ChatRepository,
-        private readonly logger: Logger
+        private readonly logger: Logger,
+        private readonly notificationsService: NotificationsService | null = null
     ) { }
 
     async getMyConversations(profileId: string) {
@@ -38,12 +41,31 @@ export class ChatService {
         const current_conv = conversations_with_participants.find(c => c.id === dto.conversation_id);
 
         if (current_conv && current_conv.participants) {
-            current_conv.participants.forEach((p: any) => {
+            current_conv.participants.forEach(async (p: any) => {
                 if (p.profile_id !== dto.sender_id) {
+                    // Socket event for immediate UI update / Toast
                     socketService.emitToUser(p.profile_id, 'new_message', {
                         conversation_id: dto.conversation_id,
                         message: message
                     });
+
+                    // Database entry for notification bell
+                    if (this.notificationsService) {
+                        try {
+                            const notification = await this.notificationsService.createNotification({
+                                recipient_id: p.profile_id,
+                                sender_id: dto.sender_id,
+                                type: NotificationType.NEW_MESSAGE,
+                                item_id: dto.conversation_id,
+                                content: dto.content.substring(0, 100)
+                            });
+                            if (notification) {
+                                socketService.emitToUser(p.profile_id, 'new_notification', notification);
+                            }
+                        } catch (err) {
+                            this.logger.instance.error("Error creating message notification", err);
+                        }
+                    }
                 }
             });
         }

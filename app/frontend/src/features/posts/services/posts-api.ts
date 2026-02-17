@@ -14,66 +14,71 @@ export class PostsServices {
         return this.apiClient.get<Post[]>(`${this.BASE_PATH}/profile/${profileId}`);
     }
 
+    public async getCompanyPosts(companyId: string): Promise<Post[]> {
+        return this.apiClient.get<Post[]>(`${this.BASE_PATH}/company/${companyId}`);
+    }
+
     public async getPostById(id: string): Promise<Post> {
         return this.apiClient.get<Post>(`${this.BASE_PATH}/${id}`);
     }
 
     public async createPost(dto: CreatePostDTO, onProgress?: (ev: ProgressEvent) => void): Promise<Post> {
-        if (dto.file) {
-            try {
-                // 1. Récupérer signature
-                const sigData = await this.apiClient.get<{
-                    signature: string,
-                    timestamp: number,
-                    cloudName: string,
-                    apiKey: string,
-                    folder: string
-                }>(`/uploads/signature?folder=worknet/posts`);
+        let finalDto = { ...dto };
 
-                const file = dto.file;
-                let secureUrl = '';
-
-                // 2. Stratégie d'upload : Simple (< 90MB) ou Chunked (> 90MB)
-                // Cloudinary limite l'upload simple à 100MB
-                const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks (safer for unstable connections)
-                if (file.size < 90 * 1024 * 1024) {
-                    secureUrl = await this.uploadSimple(file, sigData, onProgress);
-                } else {
-                    secureUrl = await this.uploadChunked(file, sigData, CHUNK_SIZE, onProgress);
-                }
-
-                // 3. Finalisation post
-                const { file: _, ...finalDto } = dto;
-                finalDto.media_url = secureUrl;
-
-                // Détection type
-                const { PostType } = await import('./posts-types');
-                if (file.type.startsWith('video/')) finalDto.type = PostType.VIDEO;
-                else if (file.type.startsWith('image/')) finalDto.type = PostType.IMAGE;
-
-                return this.apiClient.post<Post>(this.BASE_PATH, finalDto);
-            } catch (error) {
-                console.error("[PostsApi] Direct upload failed:", error);
-
-                // CRITICAL: Ne PAS fallback sur le backend pour les fichiers > 100MB.
-                // Le backend exploserait (RAM) ou Cloudinary rejetterait (413).
-                if (dto.file.size > 100 * 1024 * 1024) {
-                    throw new Error("L'envoi a échoué. Votre fichier est trop volumineux pour être traité par le serveur de secours. Veuillez réessayer avec une connexion stable.");
-                }
-
-                console.warn("[PostsApi] Falling back to proxy for small file.");
-                // Fallback Proxy (seulement pour petits fichiers)
-                const formData = new FormData();
-                Object.entries(dto).forEach(([key, value]) => {
-                    if (key !== 'file' && value !== undefined && value !== null) {
-                        formData.append(key, value as string);
-                    }
+        // Plusieurs fichiers
+        if (dto.files && dto.files.length > 0) {
+            const urls: string[] = [];
+            for (let i = 0; i < dto.files.length; i++) {
+                const url = await this.uploadFile(dto.files[i], (ev) => {
+                    if (onProgress) onProgress(ev);
                 });
-                formData.append('file', dto.file);
-                return this.apiClient.post<Post>(this.BASE_PATH, formData, { onUploadProgress: onProgress });
+                urls.push(url);
             }
+            const { files: _, ...rest } = finalDto;
+            finalDto = { ...rest, media_urls: urls };
+
+            const firstFile = dto.files[0];
+            const { PostType } = await import('./posts-types');
+            if (firstFile.type.startsWith('video/')) finalDto.type = PostType.VIDEO;
+            else if (firstFile.type.startsWith('image/')) finalDto.type = PostType.IMAGE;
         }
-        return this.apiClient.post<Post>(this.BASE_PATH, dto);
+        else if (dto.file) {
+            const secureUrl = await this.uploadFile(dto.file, onProgress);
+            const { file: _, ...rest } = finalDto;
+            finalDto = { ...rest, media_url: secureUrl, media_urls: [secureUrl] };
+
+            const { PostType } = await import('./posts-types');
+            if (dto.file.type.startsWith('video/')) finalDto.type = PostType.VIDEO;
+            else if (dto.file.type.startsWith('image/')) finalDto.type = PostType.IMAGE;
+        }
+        return this.apiClient.post<Post>(this.BASE_PATH, finalDto);
+    }
+
+    private async uploadFile(file: File, onProgress?: (ev: ProgressEvent) => void): Promise<string> {
+        try {
+            // 1. Récupérer signature
+            const sigData = await this.apiClient.get<{
+                signature: string,
+                timestamp: number,
+                cloudName: string,
+                apiKey: string,
+                folder: string
+            }>(`/uploads/signature?folder=worknet/posts`);
+
+            // 2. Stratégie d'upload : Simple (< 90MB) ou Chunked (> 90MB)
+            const CHUNK_SIZE = 10 * 1024 * 1024;
+            if (file.size < 90 * 1024 * 1024) {
+                return await this.uploadSimple(file, sigData, onProgress);
+            } else {
+                return await this.uploadChunked(file, sigData, CHUNK_SIZE, onProgress);
+            }
+        } catch (error) {
+            console.error("[PostsApi] Upload failed:", error);
+            if (file.size > 100 * 1024 * 1024) {
+                throw new Error("L'envoi a échoué. Fichier trop volumineux.");
+            }
+            throw error;
+        }
     }
 
     private async uploadSimple(file: File, sigData: any, onProgress?: (ev: ProgressEvent) => void): Promise<string> {
@@ -104,7 +109,6 @@ export class PostsServices {
         const totalChunks = Math.ceil(total / chunkSize);
         const uniqueUploadId = `worknet_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-        // Use 'video' resource type explicitly for large chunked uploads if it's a video, otherwise auto
         const resourceType = file.type.startsWith('video/') ? 'video' : 'auto';
         const cloudinaryUrl = `https://api.cloudinary.com/v1_1/${sigData.cloudName}/${resourceType}/upload`;
 
@@ -121,21 +125,16 @@ export class PostsServices {
             formData.append('timestamp', sigData.timestamp.toString());
             formData.append('signature', sigData.signature);
             formData.append('folder', sigData.folder);
-            // Necessary for Cloudinary to know it's a raw upload if we used 'auto' but for chunked video 'video' is safer
 
             await new Promise<void>((resolve, reject) => {
                 const xhr = new XMLHttpRequest();
                 xhr.open('POST', cloudinaryUrl, true);
-
                 xhr.setRequestHeader('X-Unique-Upload-Id', uniqueUploadId);
                 xhr.setRequestHeader('Content-Range', `bytes ${start}-${end - 1}/${total}`);
 
                 if (onProgress) {
                     xhr.upload.onprogress = (e) => {
                         if (e.lengthComputable) {
-                            // Calculate global progress
-                            // e.loaded is just for this chunk. But start is the base.
-                            // Note: e.total in this event is the chunk context usually
                             const totalUploaded = start + e.loaded;
                             onProgress({
                                 loaded: totalUploaded,
@@ -149,17 +148,13 @@ export class PostsServices {
                 xhr.onload = () => {
                     if (xhr.status >= 200 && xhr.status < 300) {
                         const response = JSON.parse(xhr.responseText);
-                        if (chunkIdx === totalChunks - 1) {
-                            secureUrl = response.secure_url;
-                        }
+                        if (chunkIdx === totalChunks - 1) secureUrl = response.secure_url;
                         resolve();
                     } else {
-                        // Log detailed error from Cloudinary
-                        console.error(`Chunk ${chunkIdx} failed:`, xhr.responseText);
                         reject(new Error(`Chunk upload failed at ${start}-${end}: ${xhr.statusText}`));
                     }
                 };
-                xhr.onerror = () => reject(new Error('Network error during chunk upload (CORS or Connection)'));
+                xhr.onerror = () => reject(new Error('Network error during chunk upload'));
                 xhr.send(formData);
             });
 
@@ -168,25 +163,80 @@ export class PostsServices {
         return secureUrl;
     }
 
-    public async updatePost(dto: UpdatePostDTO): Promise<Post> {
+    public async updatePost(dto: UpdatePostDTO, onProgress?: (ev: ProgressEvent) => void): Promise<Post> {
         const { id, ...updateData } = dto;
-        return this.apiClient.put<Post>(`${this.BASE_PATH}/${id}`, updateData);
+        let finalData = { ...updateData };
+
+        // Gestion des nouveaux fichiers multiples
+        if (dto.files && dto.files.length > 0) {
+            const newUrls: string[] = [];
+            for (let i = 0; i < dto.files.length; i++) {
+                const url = await this.uploadFile(dto.files[i], (ev) => {
+                    if (onProgress) onProgress(ev);
+                });
+                newUrls.push(url);
+            }
+
+            // On fusionne les URLs existantes conservées et les nouvelles
+            const currentUrls = dto.media_urls || [];
+            const mergedUrls = [...currentUrls, ...newUrls];
+
+            const { files: _, ...rest } = finalData;
+            finalData = { ...rest, media_urls: mergedUrls, media_url: mergedUrls[0] };
+
+            const firstFileType = dto.files[0].type;
+            const { PostType } = await import('./posts-types');
+            if (firstFileType.startsWith('video/')) finalData.type = PostType.VIDEO;
+            else if (firstFileType.startsWith('image/')) finalData.type = PostType.IMAGE;
+        }
+        // Un seul fichier (rétrocompatibilité)
+        else if (dto.file) {
+            const secureUrl = await this.uploadFile(dto.file, onProgress);
+            const { file: _, ...rest } = finalData;
+            finalData = { ...rest, media_url: secureUrl, media_urls: [secureUrl] };
+
+            const { PostType } = await import('./posts-types');
+            if (dto.file.type.startsWith('video/')) finalData.type = PostType.VIDEO;
+            else if (dto.file.type.startsWith('image/')) finalData.type = PostType.IMAGE;
+        }
+        // Si plus aucun média, on repasse en TEXT
+        else if (dto.media_url === null || (dto.media_urls && dto.media_urls.length === 0)) {
+            const { PostType } = await import('./posts-types');
+            finalData.type = PostType.TEXT;
+            finalData.media_url = null;
+            finalData.media_urls = [];
+        }
+
+        return this.apiClient.put<Post>(`${this.BASE_PATH}/${id}`, finalData);
     }
 
     public async deletePost(id: string): Promise<void> {
         await this.apiClient.delete(`${this.BASE_PATH}/${id}`);
     }
 
-    public async toggleLike(postId: string, profileId: string): Promise<{ liked: boolean }> {
+    public async toggleLike(postId: string, profileId: string, reactionType?: string): Promise<{ liked: boolean }> {
         return this.apiClient.post<{ liked: boolean }>("/likes/toggle", {
             post_id: postId,
-            profile_id: profileId
+            profile_id: profileId,
+            reaction_type: reactionType
         });
     }
 
     public async checkIfLiked(postId: string, profileId: string): Promise<boolean> {
         const result = await this.apiClient.get<{ liked: boolean }>(`/likes/check/${postId}?profileId=${profileId}`);
         return result.liked;
+    }
+
+    public async getPostLikes(postId: string): Promise<{ likes: any[], count: number }> {
+        return this.apiClient.get<{ likes: any[], count: number }>(`/likes/${postId}`);
+    }
+
+    public async toggleSavePost(postId: string): Promise<{ saved: boolean }> {
+        return this.apiClient.post<{ saved: boolean }>(`/saved-posts/${postId}/toggle`, {});
+    }
+
+    public async getSavedPosts(): Promise<Post[]> {
+        return this.apiClient.get<Post[]>("/saved-posts");
     }
 }
 

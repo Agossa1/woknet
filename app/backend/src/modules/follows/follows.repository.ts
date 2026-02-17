@@ -58,10 +58,11 @@ export class FollowsRepository implements IFollowsRepository {
         try {
             const sql = `
                 SELECT 
-                    p.user_id, p.username, p.display_name, p.avatar_url, p.headline,
+                    p.user_id, p.username, p.display_name, p.avatar_url, u.headline,
                     ${currentUserId ? `EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id = $2 AND f2.following_id = p.user_id)` : 'false'} as is_following
                 FROM follows f
                 JOIN profiles p ON f.follower_id = p.user_id
+                JOIN users u ON p.user_id = u.id
                 WHERE f.following_id = $1
             `;
             const params = currentUserId ? [followingId, currentUserId] : [followingId];
@@ -75,10 +76,11 @@ export class FollowsRepository implements IFollowsRepository {
         try {
             const sql = `
                 SELECT 
-                    p.user_id, p.username, p.display_name, p.avatar_url, p.headline,
+                    p.user_id, p.username, p.display_name, p.avatar_url, u.headline,
                     ${currentUserId ? `EXISTS(SELECT 1 FROM follows f2 WHERE f2.follower_id = $2 AND f2.following_id = p.user_id)` : 'false'} as is_following
                 FROM follows f
                 JOIN profiles p ON f.following_id = p.user_id
+                JOIN users u ON p.user_id = u.id
                 WHERE f.follower_id = $1
             `;
             const params = currentUserId ? [followerId, currentUserId] : [followerId];

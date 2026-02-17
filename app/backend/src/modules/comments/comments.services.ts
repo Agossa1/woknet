@@ -40,28 +40,32 @@ export class CommentsServices {
             // Notification for Post Author
             const post = await this.postsRepository.findById(dto.post_id);
             if (post) {
-                await this.notificationsService.createNotification({
+                const notification = await this.notificationsService.createNotification({
                     recipient_id: post.profile_id,
                     sender_id: dto.profile_id,
                     type: NotificationType.POST_COMMENT,
                     item_id: dto.post_id,
                     content: comment.content // snippet of the comment
                 });
-                socketService.emitToUser(post.profile_id, 'new_notification', {});
+                if (notification) {
+                    socketService.emitToUser(post.profile_id, 'new_notification', notification);
+                }
             }
 
             // Notification for Original Comment Author (if Reply)
             if (dto.parent_id) {
                 const parentComment = await this.repository.findById(dto.parent_id);
                 if (parentComment && parentComment.profile_id !== post?.profile_id) {
-                    await this.notificationsService.createNotification({
+                    const notification = await this.notificationsService.createNotification({
                         recipient_id: parentComment.profile_id,
                         sender_id: dto.profile_id,
                         type: NotificationType.POST_COMMENT, // Or define a specific COMMENT_REPLY type
                         item_id: dto.post_id,
                         content: comment.content
                     });
-                    socketService.emitToUser(parentComment.profile_id, 'new_notification', {});
+                    if (notification) {
+                        socketService.emitToUser(parentComment.profile_id, 'new_notification', notification);
+                    }
                 }
             }
         }

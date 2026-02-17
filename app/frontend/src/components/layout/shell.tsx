@@ -5,7 +5,8 @@ import { useAuth } from '@/src/features/auth/hooks/useAuth';
 import { AppSidebar, Navbar } from './index';
 import { useEffect } from 'react';
 import { useNotificationsRealtime } from '@/src/features/notifications/hooks/useNotificationsRealtime';
-import { ChatDrawer } from '@/src/features/chat/components/ChatDrawer';
+import { useChatRealtime } from '@/src/features/chat/hooks/useChatRealtime';
+
 
 export function Shell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname();
@@ -14,6 +15,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
 
     // Initialize realtime notifications
     useNotificationsRealtime();
+    useChatRealtime();
 
     // List of public paths - No sidebar/navbar shown here
     // We also hide them on the root path if the user is not authenticated (Landing Page)
@@ -28,8 +30,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         }
     }, [isAuthenticated, user, isOnboardingPath, isAuthPath, router]);
 
-    // Hide shell on auth paths, onboarding, or landing page (root when unauthenticated)
-    const showShell = isAuthenticated && !isAuthPath && !isOnboardingPath && (!isRoot || isAuthenticated);
+    // Hide shell on auth paths, onboarding, landing page, OR companies pages (standalone mode)
+    const isCompaniesPath = pathname?.startsWith('/companies');
+    const showShell = isAuthenticated && !isAuthPath && !isOnboardingPath && !isCompaniesPath && (!isRoot || isAuthenticated);
 
     if (isLoading) {
         return (
@@ -57,7 +60,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
             </div>
 
             {/* Global Chat Drawer - Hidden on the messages page to avoid redundancy */}
-            {pathname !== '/messages' && <ChatDrawer />}
+
         </div>
     );
 }

@@ -1,4 +1,3 @@
-import axios from 'axios';
 import * as cheerio from 'cheerio';
 
 export interface LinkMetadata {
@@ -11,12 +10,18 @@ export interface LinkMetadata {
 export class LinkPreviewService {
     public static async getMetadata(url: string): Promise<LinkMetadata | null> {
         try {
-            const { data } = await axios.get(url, {
+            const response = await fetch(url, {
                 headers: {
                     'User-Agent': 'WorkNetBot/1.0',
                 },
-                timeout: 5000,
+                // timeout: 5000 is not directly supported in fetch without AbortController
             });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.text();
 
             const $ = cheerio.load(data);
             const metadata: LinkMetadata = {

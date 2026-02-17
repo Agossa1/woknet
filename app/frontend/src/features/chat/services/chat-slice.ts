@@ -13,7 +13,7 @@ const initialState: ChatState = {
     messages: {},
     loading: false,
     error: null,
-    isDrawerOpen: false,
+
     onlineUsers: [],
     typingUsers: {}
 };
@@ -25,9 +25,7 @@ const chatSlice = createSlice({
         setActiveConversation: (state, action: PayloadAction<string | null>) => {
             state.activeConversationId = action.payload;
         },
-        toggleChatDrawer: (state, action: PayloadAction<boolean | undefined>) => {
-            state.isDrawerOpen = action.payload ?? !state.isDrawerOpen;
-        },
+
         receiveMessage: (state, action: PayloadAction<{ conversationId: string; message: ChatMessage }>) => {
             const { conversationId, message } = action.payload;
 
@@ -151,10 +149,10 @@ const chatSlice = createSlice({
                     state.conversations.unshift(newConv);
                 }
                 state.activeConversationId = newConv.id;
-                state.isDrawerOpen = true;
+
             });
     }
 });
 
-export const { setActiveConversation, toggleChatDrawer, receiveMessage, markMessagesAsRead, setOnlineUsers, updateUserStatus, userStartedTyping, userStoppedTyping } = chatSlice.actions;
+export const { setActiveConversation, receiveMessage, markMessagesAsRead, setOnlineUsers, updateUserStatus, userStartedTyping, userStoppedTyping } = chatSlice.actions;
 export const chatReducer = chatSlice.reducer;

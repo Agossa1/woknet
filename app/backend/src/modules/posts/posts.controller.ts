@@ -60,6 +60,17 @@ export class PostsController {
         }
     };
 
+    public getCompanyPosts = async (req: any, res: Response): Promise<void> => {
+        try {
+            const companyId = req.params.companyId as string;
+            const currentProfileId = req.user?.id;
+            const posts = await this.service.getCompanyPosts(companyId, currentProfileId);
+            res.json(posts);
+        } catch (error) {
+            this.handleError(res, error, "GET_COMPANY_POSTS_ERROR");
+        }
+    };
+
     public getFeed = async (req: any, res: Response): Promise<void> => {
         try {
             const page = parseInt(req.query.page as string) || 1;

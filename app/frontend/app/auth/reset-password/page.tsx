@@ -69,7 +69,7 @@ function ResetPasswordContent() {
 
                 {/* Form */}
                 <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form onSubmit={handleSubmit} method="POST" className="space-y-4">
 
                         {/* Messages */}
                         {(error || localError) && (

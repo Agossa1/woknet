@@ -30,7 +30,7 @@ export interface ChatState {
     messages: Record<string, ChatMessage[]>; // Map of conversationId -> messages
     loading: boolean;
     error: string | null;
-    isDrawerOpen: boolean;
+
     onlineUsers: string[];
     typingUsers: Record<string, string[]>;
 }

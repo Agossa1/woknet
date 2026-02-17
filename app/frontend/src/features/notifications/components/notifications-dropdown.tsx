@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { fetchNotificationsThunk, markAllReadThunk, markAsReadThunk } from '../services/notifications-thunks';
 import { NotificationType } from '../services/notifications-types';
-import { Heart, MessageSquare, Share2, UserPlus, Bell, Check, Loader2 } from 'lucide-react';
+import { Heart, MessageSquare, Share2, UserPlus, Bell, Check, Loader2, MessageCircle } from 'lucide-react';
+import { setActiveConversation } from '../../chat/services/chat-slice';
 import Link from 'next/link';
 import { formatDistanceToNow } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -54,6 +55,8 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ on
                 return <Share2 size={16} className="text-green-500" />;
             case NotificationType.NEW_FOLLOW:
                 return <UserPlus size={16} className="text-purple-500" />;
+            case NotificationType.NEW_MESSAGE:
+                return <MessageCircle size={16} className="text-indigo-500 fill-indigo-500" />;
             default:
                 return <Bell size={16} className="text-gray-500" />;
         }
@@ -73,6 +76,8 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ on
                 return <>{senderName} a partagé votre publication</>;
             case NotificationType.NEW_FOLLOW:
                 return <>{senderName} a commencé à vous suivre</>;
+            case NotificationType.NEW_MESSAGE:
+                return <>{senderName} vous a envoyé un message : <span className="text-gray-500 truncate block">"{notification.content}"</span></>;
             default:
                 return <>{senderName} vous a envoyé une notification</>;
         }
@@ -112,8 +117,19 @@ export const NotificationsDropdown: React.FC<NotificationsDropdownProps> = ({ on
                         {notifications.map((notification) => (
                             <Link
                                 key={notification.id}
-                                href={notification.type === NotificationType.NEW_FOLLOW ? `/profile/${notification.sender_id}` : `/feed`} // could be more specific
-                                onClick={() => handleNotificationClick(notification.id)}
+                                href={
+                                    notification.type === NotificationType.NEW_FOLLOW
+                                        ? `/profile/${notification.sender_id}`
+                                        : notification.type === NotificationType.NEW_MESSAGE
+                                            ? '/messages'
+                                            : `/feed`
+                                }
+                                onClick={() => {
+                                    handleNotificationClick(notification.id);
+                                    if (notification.type === NotificationType.NEW_MESSAGE && notification.item_id) {
+                                        dispatch(setActiveConversation(notification.item_id));
+                                    }
+                                }}
                                 className={`flex gap-3 p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors relative ${!notification.is_read ? 'bg-blue-50/30 dark:bg-blue-900/10' : ''}`}
                             >
                                 {!notification.is_read && (

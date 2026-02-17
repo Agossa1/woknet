@@ -23,6 +23,7 @@ export class PostsRouter {
         this.router.post("/", AuthGuard.authenticate, upload.single('file'), this.controller.create);
         this.router.get("/feed", AuthGuard.optionalAuthenticate as any, this.controller.getFeed);
         this.router.get("/profile/:profileId", AuthGuard.optionalAuthenticate as any, this.controller.getProfilePosts);
+        this.router.get("/company/:companyId", AuthGuard.optionalAuthenticate as any, this.controller.getCompanyPosts);
         this.router.get("/:id", this.controller.getById);
         this.router.put("/:id", AuthGuard.authenticate, this.controller.update);
         this.router.delete("/:id", AuthGuard.authenticate, this.controller.delete);
