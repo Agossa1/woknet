@@ -59,6 +59,12 @@ export class CompaniesController {
         }
     });
 
+    getCompanyById = AsyncHandler(async (req: Request, res: Response) => {
+        const id = req.params.id as string;
+        const company = await this.service.getCompanyById(id);
+        return res.json({ success: true, data: company });
+    });
+
     updateCompany = AsyncHandler(async (req: Request, res: Response) => {
         const validation = UpdateCompanySchema.safeParse(req.body);
         if (!validation.success) {

@@ -8,6 +8,7 @@ import { PasswordService } from "../../infra/services/passwords/passwordServices
 import { YumiMailService } from "../../utils/email/email.services";
 import GeoService from "../../infra/geo/geo.service";
 import { randomInt } from "node:crypto";
+import { generateSecret, generateURI, verify } from "otplib";
 
 
 export class AuthServices {
@@ -152,10 +153,6 @@ export class AuthServices {
                 role: this.getPrimaryRole(user.roles)
             }
 
-            // Générer les tokens d'accès et de rafraîchissement
-            const accessToken = this.token.generateAccessToken(tokenPayload as any);
-            const refreshToken = this.token.generateRefreshToken({ id: user.id } as any);
-
             // Metadata de connexion (IP, User Agent, Geo, etc.) à implémenter ici
             const metadata = data.ip_address && data.user_agent
                 ? await GeoService.getConnectionMetadata(data.ip_address, data.user_agent)
@@ -164,13 +161,27 @@ export class AuthServices {
             // Mettre à jour la dernière connexion de l'utilisateur avec les métadonnées
             await this.authRepository.updateLastLogin(user.id, data.ip_address, metadata);
 
+            // Vérifier si la 2FA est activée
+            if (user.two_factor_enabled) {
+                return {
+                    requires2FA: true,
+                    userId: user.id,
+                    email: user.email
+                } as any;
+            }
+
+            // Générer les tokens d'accès et de rafraîchissement
+            const accessToken = this.token.generateAccessToken(tokenPayload as any);
+            const refreshToken = this.token.generateRefreshToken({ id: user.id } as any);
+
             // Sécurité : on masque les données sensibles au retour
-            const { password_hash, otp_code, ...publicUser } = user as any;
+            const { password_hash, otp_code, two_factor_secret, two_factor_recovery_codes, ...publicUser } = user as any;
             // Retourner les données publiques de l'utilisateur avec les tokens d'accès et de rafraîchissement
             return {
                 ...publicUser,
                 accessToken,
-                refreshToken
+                refreshToken,
+                requires2FA: false
             } as any;
 
         } catch (error: any) {
@@ -530,5 +541,74 @@ export class AuthServices {
         } catch (error: any) {
             throw new InternalServerError("Failed to fetch job types");
         }
+    }
+
+    // Two-Factor Authentication (2FA)
+
+    async generate2FASecret(userId: string): Promise<{ secret: string; otpauthUrl: string }> {
+        const user = await this.authRepository.findById(userId);
+        if (!user) throw new BadRequestError("User not found");
+
+        const secret = generateSecret();
+        const otpauthUrl = generateURI({
+            issuer: 'WorkNet',
+            label: user.email,
+            secret
+        });
+
+        return { secret, otpauthUrl };
+    }
+
+    async verifyAndEnable2FA(userId: string, secret: string, token: string): Promise<string[]> {
+        const result = await verify({ token, secret });
+        if (!result.valid) throw new BadRequestError("Code de vérification invalide");
+
+        // Generate recovery codes
+        const recoveryCodes = Array.from({ length: 8 }, () => randomInt(100000, 999999).toString());
+
+        await this.authRepository.updateTwoFactorSecret(userId, secret, recoveryCodes);
+        await this.authRepository.updateTwoFactorStatus(userId, true);
+
+        return recoveryCodes;
+    }
+
+    async disable2FA(userId: string, password?: string): Promise<void> {
+        const user = await this.authRepository.findById(userId);
+        if (!user) throw new BadRequestError("User not found");
+
+        if (password) {
+            const isPasswordValid = await this.passwordService.comparePassword(password, user.password_hash);
+            if (!isPasswordValid) throw new BadRequestError("Mot de passe invalide");
+        }
+
+        await this.authRepository.updateTwoFactorStatus(userId, false);
+    }
+
+    async verify2FALogin(userId: string, token: string): Promise<{ accessToken: string; refreshToken: string; user: Partial<User> }> {
+        const user = await this.authRepository.findById(userId);
+        if (!user || !user.two_factor_enabled || !user.two_factor_secret) {
+            throw new BadRequestError("2FA non activée pour cet utilisateur");
+        }
+
+        const result = await verify({ token, secret: user.two_factor_secret });
+        if (!result.valid) {
+            throw new BadRequestError("Code 2FA invalide");
+        }
+
+        const tokenPayload = {
+            id: user.id,
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
+            role: this.getPrimaryRole(user.roles)
+        };
+
+        const accessToken = this.token.generateAccessToken(tokenPayload as any);
+        const refreshToken = this.token.generateRefreshToken({ id: user.id } as any);
+
+        await this.authRepository.saveRefreshToken(user.id, refreshToken);
+
+        const { password_hash, otp_code, two_factor_secret, two_factor_recovery_codes, ...publicUser } = user as any;
+        return { accessToken, refreshToken, user: publicUser };
     }
 }

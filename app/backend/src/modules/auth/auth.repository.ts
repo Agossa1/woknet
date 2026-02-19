@@ -23,6 +23,8 @@ export interface AuthRepository {
     revoqueRefreshToken(userId: string): Promise<void>;
     saveResetToken(userId: string, token: string): Promise<void>;
     completeOnboarding(dto: any): Promise<void>;
+    updateTwoFactorStatus(userId: string, enabled: boolean): Promise<void>;
+    updateTwoFactorSecret(userId: string, secret: string, recoveryCodes: string[]): Promise<void>;
 }
 
 export interface CreateUserPayload extends CreateUserDTO {
@@ -369,6 +371,24 @@ export class AuthRepository implements AuthRepository {
             return await this.db.query(sql);
         } catch (error) {
             throw new DatabaseQueryError("GET_JOB_TYPES_ERROR", error instanceof Error ? error.message : "Unknown error");
+        }
+    }
+
+    async updateTwoFactorStatus(userId: string, enabled: boolean): Promise<void> {
+        try {
+            const sql = `UPDATE users SET two_factor_enabled = $2 WHERE id = $1`;
+            await this.db.query(sql, [userId, enabled]);
+        } catch (error) {
+            throw new DatabaseQueryError("UPDATE_2FA_STATUS_ERROR", error);
+        }
+    }
+
+    async updateTwoFactorSecret(userId: string, secret: string, recoveryCodes: string[]): Promise<void> {
+        try {
+            const sql = `UPDATE users SET two_factor_secret = $2, two_factor_recovery_codes = $3 WHERE id = $1`;
+            await this.db.query(sql, [userId, secret, recoveryCodes]);
+        } catch (error) {
+            throw new DatabaseQueryError("UPDATE_2FA_SECRET_ERROR", error);
         }
     }
 }

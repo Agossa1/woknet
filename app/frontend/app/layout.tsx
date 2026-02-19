@@ -26,32 +26,42 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning ici est nécessaire pour le script de thème
     <html lang="fr" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{
-          __html: `(function(){
-          try {
-            var t = localStorage.getItem('theme');
-            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            if (t === 'dark' || (!t && prefersDark)) {
-              document.documentElement.classList.add('dark');
-            } else {
-              document.documentElement.classList.remove('dark');
-            }
-          } catch (e) { /* ignore */ }
-        })();` }} />
-        <script async src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
+        <script
+          id="theme-strategy"
+          dangerouslySetInnerHTML={{
+            __html: `(function(){
+              try {
+                var t = localStorage.getItem('theme');
+                var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                if (t === 'dark' || (!t && prefersDark)) {
+                  document.documentElement.classList.add('dark');
+                } else {
+                  document.documentElement.classList.remove('dark');
+                }
+              } catch (e) {}
+            })();`,
+          }}
+        />
+        {/* Préférer l'installation npm de Flowbite pour éviter les conflits DOM en SSR */}
       </head>
       <body
         suppressHydrationWarning
         className={`${inter.variable} ${geistMono.variable} antialiased bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 transition-colors duration-200`}
       >
         <Providers>
+          {/* Si l'erreur "bis_skin_checked" persiste sur /profile, 
+              vérifie le composant Shell ou ProfilePage directement */}
           <Shell>
             {children}
           </Shell>
         </Providers>
         <Toaster position="top-right" richColors />
+
+        {/* Script Flowbite à la fin pour ne pas bloquer l'hydratation initiale */}
+        <script async src="https://cdn.jsdelivr.net/npm/flowbite@2.5.2/dist/flowbite.min.js"></script>
       </body>
     </html>
   );

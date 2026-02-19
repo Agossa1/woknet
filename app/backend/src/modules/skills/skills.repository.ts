@@ -33,7 +33,7 @@ export class SkillsRepository {
             const result = await this.db.query<Skill>(sql, [`%${query}%`, query, limit]);
             return result;
         } catch (error: any) {
-            this.logger.error(`Failed to search skills: ${error}`);
+            this.logger.instance.error(`Failed to search skills: ${error}`);
             throw new InternalServerError("Failed to search skills");
         }
     }
@@ -44,7 +44,7 @@ export class SkillsRepository {
             const result = await this.db.query<Skill>(sql, [name, category]);
             return result[0];
         } catch (error: any) {
-            this.logger.error(`Failed to create skill: ${error}`);
+            this.logger.instance.error(`Failed to create skill: ${error}`);
             throw new InternalServerError("Failed to create skill");
         }
     }
@@ -54,8 +54,8 @@ export class SkillsRepository {
     // ------------------------------------------------------------------
 
     async getProfileSkills(profileId: string): Promise<ProfileSkill[]> {
-       try {
-         const sql = `
+        try {
+            const sql = `
             SELECT 
                 ps.*, 
                 s.name as skill_name, 
@@ -65,12 +65,12 @@ export class SkillsRepository {
             WHERE ps.profile_id = $1
             ORDER BY ps.endorsements_count DESC, s.name ASC
         `;
-        const result = await this.db.query<ProfileSkill>(sql, [profileId]);
-        return result;
-       } catch (error: any) {
-        this.logger.error(`Failed to get profile skills: ${error}`);
-        throw new InternalServerError("Failed to get profile skills");
-       }
+            const result = await this.db.query<ProfileSkill>(sql, [profileId]);
+            return result;
+        } catch (error: any) {
+            this.logger.instance.error(`Failed to get profile skills: ${error}`);
+            throw new InternalServerError("Failed to get profile skills");
+        }
     }
 
     async addSkillToProfile(profileId: string, skillId: string, level: SKILL_LEVEL = SKILL_LEVEL.INTERMEDIATE): Promise<ProfileSkill> {
@@ -82,10 +82,10 @@ export class SkillsRepository {
             SET level = EXCLUDED.level
             RETURNING *
         `;
-        const result = await this.db.query<ProfileSkill>(sql, [profileId, skillId, level]);
-        return result[0];
+            const result = await this.db.query<ProfileSkill>(sql, [profileId, skillId, level]);
+            return result[0];
         } catch (error: any) {
-            this.logger.error(`Failed to add skill to profile: ${error}`);
+            this.logger.instance.error(`Failed to add skill to profile: ${error}`);
             throw new InternalServerError("Failed to add skill to profile");
         }
     }
@@ -95,7 +95,7 @@ export class SkillsRepository {
             const sql = `DELETE FROM profile_skills WHERE profile_id = $1 AND skill_id = $2`;
             await this.db.query(sql, [profileId, skillId]);
         } catch (error: any) {
-            this.logger.error(`Failed to remove skill from profile: ${error}`);
+            this.logger.instance.error(`Failed to remove skill from profile: ${error}`);
             throw new InternalServerError("Failed to remove skill from profile");
         }
     }
@@ -108,10 +108,10 @@ export class SkillsRepository {
             WHERE profile_id = $1 AND skill_id = $2
             RETURNING *
         `;
-        const result = await this.db.query<ProfileSkill>(sql, [profileId, skillId, level]);
-        return result.length > 0 ? result[0] : null;
+            const result = await this.db.query<ProfileSkill>(sql, [profileId, skillId, level]);
+            return result.length > 0 ? result[0] : null;
         } catch (error: any) {
-            this.logger.error(`Failed to update skill level: ${error}`);
+            this.logger.instance.error(`Failed to update skill level: ${error}`);
             throw new InternalServerError("Failed to update skill level");
         }
     }
@@ -128,19 +128,19 @@ export class SkillsRepository {
             VALUES ($1, $2, $3)
             RETURNING *
         `;
-        const endorsement = await this.db.query<SkillEndorsement>(endorsementSql, [profileId, skillId, endorserId]);
+            const endorsement = await this.db.query<SkillEndorsement>(endorsementSql, [profileId, skillId, endorserId]);
 
-        // Step 2: Increment the counter on profile_skills
-        const updateCountSql = `
+            // Step 2: Increment the counter on profile_skills
+            const updateCountSql = `
             UPDATE profile_skills 
             SET endorsements_count = endorsements_count + 1
             WHERE profile_id = $1 AND skill_id = $2
         `;
-        await this.db.query(updateCountSql, [profileId, skillId]);
+            await this.db.query(updateCountSql, [profileId, skillId]);
 
-        return endorsement[0];
+            return endorsement[0];
         } catch (error: any) {
-            this.logger.error(`Failed to endorse skill: ${error}`);
+            this.logger.instance.error(`Failed to endorse skill: ${error}`);
             throw new InternalServerError("Failed to endorse skill");
         }
     }
@@ -152,18 +152,62 @@ export class SkillsRepository {
             DELETE FROM skill_endorsements 
             WHERE profile_id = $1 AND skill_id = $2 AND endorser_id = $3
         `;
-        await this.db.query(deleteSql, [profileId, skillId, endorserId]);
+            await this.db.query(deleteSql, [profileId, skillId, endorserId]);
 
-        // Step 2: Decrement counter
-        const updateCountSql = `
+            // Step 2: Decrement counter
+            const updateCountSql = `
             UPDATE profile_skills 
             SET endorsements_count = GREATEST(endorsements_count - 1, 0)
             WHERE profile_id = $1 AND skill_id = $2
         `;
-        await this.db.query(updateCountSql, [profileId, skillId]);
+            await this.db.query(updateCountSql, [profileId, skillId]);
         } catch (error: any) {
-            this.logger.error(`Failed to remove endorsement: ${error}`);
+            this.logger.instance.error(`Failed to remove endorsement: ${error}`);
             throw new InternalServerError("Failed to remove endorsement");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Categories
+    // ------------------------------------------------------------------
+
+    async createCategory(profileId: string, name: string): Promise<any> {
+        const sql = `INSERT INTO profile_skill_categories (profile_id, name) VALUES ($1, $2) RETURNING *`;
+        const result = await this.db.query<any>(sql, [profileId, name]);
+        return result[0];
+    }
+
+    async getProfileCategories(profileId: string): Promise<any[]> {
+        const sql = `SELECT * FROM profile_skill_categories WHERE profile_id = $1 ORDER BY name ASC`;
+        return await this.db.query<any>(sql, [profileId]);
+    }
+
+    async deleteCategory(id: string): Promise<void> {
+        const sql = `DELETE FROM profile_skill_categories WHERE id = $1`;
+        await this.db.query(sql, [id]);
+    }
+
+    async mapSkillToCategory(categoryId: string, skillId: string, profileId: string): Promise<void> {
+        const sql = `
+            INSERT INTO profile_skill_category_mapping (category_id, skill_id, profile_id)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (category_id, skill_id) DO NOTHING
+        `;
+        await this.db.query(sql, [categoryId, skillId, profileId]);
+    }
+
+    async unmapSkillFromCategory(categoryId: string, skillId: string): Promise<void> {
+        const sql = `DELETE FROM profile_skill_category_mapping WHERE category_id = $1 AND skill_id = $2`;
+        await this.db.query(sql, [categoryId, skillId]);
+    }
+
+    async getSkillsByCategory(categoryId: string): Promise<any[]> {
+        const sql = `
+            SELECT s.* 
+            FROM skills s
+            JOIN profile_skill_category_mapping m ON s.id = m.skill_id
+            WHERE m.category_id = $1
+        `;
+        return await this.db.query<any>(sql, [categoryId]);
     }
 }

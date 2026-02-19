@@ -9,32 +9,51 @@ import { ErrorHandler } from './errors/middleware.error';
 import { connectRedis } from './config/redis/redis';
 import router from './routes';
 
+import apiLimit from './infra/security/rate.limiting';
+
+
+
 
 const app: Application = express();
 const logger = new Logger();
-const errorHandler = new ErrorHandler(logger.instance);
 
-app.use(cors(corsOptions))
+// --- 1. CONFIGURATION RÉSEAU ---
+// Indispensable pour récupérer la vraie IP client  sur Render, Heroku, AWS, etc.
+app.set('trust proxy', 1);
 
-// Middleware initialization
+// --- 2. MIDDLEWARES DE BASE ---
+app.use(cors(corsOptions));
+
 new ConfigureMiddleware(app).apply();
 new MorganMiddleware(app, logger).apply();
 
+// --- 3. SÉCURITÉ (RATE LIMITING) ---
+
+
+
 async function startServer() {
-    // Try to connect to Redis if the module exists; otherwise continue without Redis
+    try {
+        const errorHandler = new ErrorHandler(logger.instance);
 
-    await connectRedis();
-    const database = new PostgresDatabase();
-    await database.connect();
-
-    // Routes initialization
-    app.use('/api', router)
+        // --- 4. BASES DE DONNÉES ---
+        await connectRedis();
+        const database = new PostgresDatabase();
+        await database.connect();
 
 
-    // GLOBAL ERROR HANDLER (must be after routes)
-    app.use(errorHandler.handle);
+       // app.use('/api', apiLimit);
+        // --- 5. ROUTES ---
+        app.use('/api', router);
 
-    logger.instance.info("Application demarrée avec succès");
+
+        // --- 6. GESTION DES ERREURS (Toujours en dernier) ---
+        app.use(errorHandler.handle);
+
+        logger.instance.info("🚀 Application démarrée avec succès sur le port 3000");
+    } catch (error) {
+        logger.instance.error("❌ Échec du démarrage du serveur :", error);
+        process.exit(1);
+    }
 }
 
 startServer();

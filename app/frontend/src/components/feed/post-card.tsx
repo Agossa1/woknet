@@ -168,62 +168,72 @@ export default function PostCard({ post }: PostCardProps) {
             )}
 
             {/* Header */}
-            <div className="p-4 flex justify-between items-start">
-                <div className="flex items-center gap-2 flex-1">
-                    <Link href={authorLink} className="shrink-0 flex items-center">
-                        <img
-                            src={post.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.full_name}`}
-                            className="w-12 h-12 rounded-full border border-gray-100 dark:border-gray-800 object-cover bg-gray-50 dark:bg-gray-800"
-                            alt={post.full_name}
-                            loading="lazy"
-                            decoding="async"
-                        />
+           <div className="p-4 flex justify-between items-start gap-3">
+    <div className="flex items-center gap-3 flex-1 min-w-0">
+        <Link href={authorLink} className="shrink-0">
+            <img
+                src={post.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${post.full_name}`}
+                className="w-12 h-12 rounded-full border border-gray-100 dark:border-gray-800 object-cover bg-gray-50 dark:bg-gray-800"
+                alt={post.full_name}
+                loading="lazy"
+            />
+        </Link>
+
+        <div className="flex-1 min-w-0">
+            {/* Ligne du haut : Nom + Entreprise + Date */}
+            <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <Link href={authorLink} className="hover:text-blue-600 hover:underline transition truncate">
+                        <span className="font-bold text-sm text-gray-900 dark:text-gray-100">
+                            {isSharedPost ? post.original_author_name : post.full_name}
+                        </span>
                     </Link>
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                            <Link href={authorLink} className="hover:text-blue-600 hover:underline transition">
-                                <span className="font-bold text-sm text-gray-900 dark:text-gray-100 truncate">
-                                    {isSharedPost ? post.original_author_name : post.display_name || post.full_name}
-                                </span>
-                            </Link>
-                            {isCompanyPost && !isSharedPost && (
-                                <span className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-[10px] uppercase font-bold text-gray-500 rounded tracking-wider border border-gray-200 dark:border-gray-700">
-                                    <Building2 size={10} />
-                                    Entreprise
-                                </span>
-                            )}
-                            {!isOwner && authUser && !isSharedPost && (
-                                <>
-                                    <span className="text-gray-400 text-xs">•</span>
-                                    <button
-                                        onClick={() => dispatch(toggleFollowThunk(post.profile_id))}
-                                        className="text-blue-600 dark:text-blue-400 text-sm font-bold hover:bg-blue-50 dark:hover:bg-blue-900/20 px-2 py-0.5 rounded transition"
-                                    >
-                                        {isFollowing ? "Suivi(e)" : "Suivre"}
-                                    </button>
-                                </>
-                            )}
+                    
+                    {isCompanyPost && !isSharedPost && (
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-gray-500 dark:text-gray-400 shrink-0">
+                            <Building2 size={13} className="opacity-70" />
+                            Entreprise
+                        </span>
+                    )}
+
+                    {!isOwner && authUser && !isSharedPost && (
+                        <div className="flex items-center gap-1 shrink-0">
+                            <span className="text-gray-400 text-xs">•</span>
+                            <button
+                                onClick={() => dispatch(toggleFollowThunk(post.profile_id))}
+                                className="text-blue-600 dark:text-blue-400 text-sm font-bold hover:bg-blue-50 dark:hover:bg-blue-900/20 px-1 py-0.5 rounded transition"
+                            >
+                                {isFollowing ? "Suivi(e)" : "Suivre"}
+                            </button>
                         </div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
-                            {isCompanyPost
-                                ? `${post.company_type || "Entreprise"} • ${post.company_size || "Taille inconnue"}`
-                                : post.headline}
-                        </p>
-                        <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
-                            <span>{formatTimeAgo(post.created_at)}</span>
-                            <span>•</span>
-                            <Globe size={12} />
-                        </div>
-                    </div>
+                    )}
                 </div>
 
-                <div className="relative">
-                    <button
-                        onClick={() => setIsMenuOpen(!isMenuOpen)}
-                        className={`text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 p-1.5 rounded-full transition ${isMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100' : ''}`}
-                    >
-                        <MoreHorizontal size={20} />
-                    </button>
+                {/* Date alignée à droite sur la même ligne */}
+                <div className="flex items-center gap-1 text-[11px] text-gray-400 shrink-0 ml-auto">
+                    <span>{formatTimeAgo(post.created_at)}</span>
+                    <span className="hidden sm:inline">•</span>
+                    <Globe size={11} className="hidden sm:inline" />
+                </div>
+            </div>
+
+            {/* Ligne du bas : Headline ou Infos Entreprise */}
+            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">
+                {isCompanyPost
+                    ? `${post.company_type || "Entreprise"} • ${post.company_size ? `${post.company_size} employés` : "Taille inconnue"}`
+                    : post.headline}
+            </p>
+        </div>
+    </div>
+
+    {/* Menu à trois points */}
+    <div className="relative shrink-0">
+        <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className={`text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 p-1.5 rounded-full transition ${isMenuOpen ? 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100' : ''}`}
+        >
+            <MoreHorizontal size={20} />
+        </button>
 
                     {isMenuOpen && (
                         <>
@@ -288,32 +298,36 @@ export default function PostCard({ post }: PostCardProps) {
             </div>
 
             {/* Post Content */}
-            {post.background_color && post.background_color !== 'none' ? (
-                <div
-                    className={`h-[300px] flex items-center justify-center p-8 text-center cursor-pointer transition-transform hover:scale-[1.01] duration-500 overflow-hidden relative ${POST_BACKGROUND_PRESETS.find(p => p.id === post.background_color)?.class || ''}`}
-                    onClick={() => setIsDetailModalOpen(true)}
-                >
-                    <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-                    <p className="text-2xl font-bold leading-snug break-words max-w-full z-10 drop-shadow-sm">
-                        {post.content && post.content.split(/(\s+)/).map((part, i) => {
-                            if (part.startsWith('#') && part.length > 1) {
-                                const hashtag = part.substring(1).replace(/[^\w]/g, '');
-                                return (
-                                    <Link
-                                        key={i}
-                                        href={`/hashtag/${hashtag}`}
-                                        className="text-white hover:underline drop-shadow-md"
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        {part}
-                                    </Link>
-                                );
-                            }
-                            return part;
-                        })}
-                    </p>
-                </div>
-            ) : (
+            {post.background_color && post.background_color !== 'none' ? (() => {
+                const preset = POST_BACKGROUND_PRESETS.find(p => p.id === post.background_color);
+                return (
+                    <div
+                        className={`h-[300px] flex items-center justify-center p-8 text-center cursor-pointer transition-transform hover:scale-[1.01] duration-500 overflow-hidden relative ${preset?.class || ''}`}
+                        style={preset?.style || {}}
+                        onClick={() => setIsDetailModalOpen(true)}
+                    >
+                        <div className="absolute inset-0 bg-black/5 pointer-events-none" />
+                        <p className="text-2xl font-bold leading-snug break-words max-w-full z-10 drop-shadow-sm">
+                            {post.content && post.content.split(/(\s+)/).map((part, i) => {
+                                if (part.startsWith('#') && part.length > 1) {
+                                    const hashtag = part.substring(1).replace(/[^\w]/g, '');
+                                    return (
+                                        <Link
+                                            key={i}
+                                            href={`/hashtag/${hashtag}`}
+                                            className="text-white hover:underline drop-shadow-md"
+                                            onClick={(e) => e.stopPropagation()}
+                                        >
+                                            {part}
+                                        </Link>
+                                    );
+                                }
+                                return part;
+                            })}
+                        </p>
+                    </div>
+                );
+            })() : (
                 <div className="px-4 pt-2 pb-3 cursor-pointer" onClick={() => setIsDetailModalOpen(true)}>
                     <p className={`text-sm leading-relaxed whitespace-pre-line ${post.content && post.content.length < 100 && !post.media_url && (!post.media_urls || post.media_urls.length === 0) ? 'text-lg text-gray-900 dark:text-white font-medium' : 'text-gray-800 dark:text-gray-200'}`}>
                         {post.content && post.content.split(/(\s+)/).map((part, i) => {
@@ -345,7 +359,7 @@ export default function PostCard({ post }: PostCardProps) {
                     {post.media_urls.slice(0, 4).map((url, idx) => (
                         <div
                             key={url}
-                            className={`relative overflow-hidden ${post.media_urls!.length === 3 && idx === 0 ? 'row-span-2 h-full' : 'h-[200px]'
+                            className={`relative overflow-hidden ${post.media_urls!.length === 3 && idx === 0 ? 'row-span-2 h-full' : ' '
                                 }`}
                         >
                             {post.type === 'IMAGE' ? (
@@ -360,6 +374,7 @@ export default function PostCard({ post }: PostCardProps) {
                                 <VideoPlayer
                                     src={url}
                                     className="w-full h-full object-cover block"
+                                    enableClickToPlay={false}
                                 />
                             ) : null}
 
@@ -386,13 +401,18 @@ export default function PostCard({ post }: PostCardProps) {
                         <VideoPlayer
                             src={post.media_url}
                             className="w-full h-auto block"
+                            enableClickToPlay={false}
                         />
                     ) : null}
                 </div>
             )}
 
             {/* Post Stats */}
-            {(post.likes_count > 0 || post.comments_count > 0 || post.shares_count > 0) && (
+            {(post.likes_count > 0 ||
+              post.comments_count > 0 ||
+              post.shares_count > 0 ||
+              post.type === 'VIDEO' ||
+              post.type === 'IMAGE') && (
                 <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800">
                     <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                         <div
@@ -431,6 +451,11 @@ export default function PostCard({ post }: PostCardProps) {
                         <div className="flex gap-3">
                             {post.comments_count > 0 && <span className="hover:text-blue-600 hover:underline cursor-pointer" onClick={handleToggleComments}>{post.comments_count} commentaires</span>}
                             {post.shares_count > 0 && <span className="hover:text-blue-600 hover:underline cursor-pointer">{post.shares_count} partages</span>}
+                            {(post.type === 'VIDEO' || post.type === 'IMAGE') && (
+                                <span className="text-gray-500 dark:text-gray-400">
+                                    {(post.views_count ?? 0)} vues
+                                </span>
+                            )}
                         </div>
                     </div>
                 </div>

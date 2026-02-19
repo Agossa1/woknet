@@ -1,10 +1,11 @@
 import { NextFunction, Request, Response } from 'express'; // Imports corrects
+import QRCode from 'qrcode';
 import { AuthServices } from "./auth.services";
 // J'assume que RegisterSchema est un schéma Zod exporté
 import { forgotPasswordSchema, loginSchema, registerSchema, resetPasswordSchema, verifyOtpSchema } from "./auth.schema";
 import GeoService from "../../infra/geo/geo.service";
 import Logger from "../../infra/logger/winston";
-import { AppError, InternalServerError } from '../../errors/custom-errors';
+import { AppError, BadRequestError, InternalServerError } from '../../errors/custom-errors';
 import { SecureRequest } from '../../infra/middleware/auth.middleware';
 
 /**
@@ -136,14 +137,31 @@ export class AuthController {
             user_agent: req.headers['user-agent'] || 'unknown'
         };
 
-        const { accessToken, refreshToken, ...user } = await this.authService.loginUser(inputWithMeta as any) as any;
+        const result = await this.authService.loginUser(inputWithMeta as any) as any;
+
+        if (result.requires2FA) {
+            return res.status(200).json({
+                success: true,
+                message: "2FA requise",
+                data: {
+                    requires2FA: true,
+                    userId: result.userId,
+                    email: result.email
+                }
+            });
+        }
+
+        const { accessToken, refreshToken, ...user } = result;
         this.setTokenCookies(res, { accessToken, refreshToken });
 
         this.logger.instance.info(`Utilisateur connecté : ${user.id} depuis IP ${inputWithMeta.ip_address}`);
         return res.status(200).json({
             success: true,
             message: "Connexion réussie",
-            data: user
+            data: {
+                ...user,
+                requires2FA: false
+            }
         });
     })
 
@@ -410,6 +428,60 @@ export class AuthController {
         return res.status(200).json({
             success: true,
             data: types
+        });
+    })
+
+    setup2FA = AsyncHandler(async (req: SecureRequest, res: Response) => {
+        const { secret, otpauthUrl } = await this.authService.generate2FASecret(req.user!.id);
+        const qrCodeUrl = await QRCode.toDataURL(otpauthUrl);
+
+        return res.status(200).json({
+            success: true,
+            data: {
+                secret,
+                qrCodeUrl
+            }
+        });
+    })
+
+    enable2FA = AsyncHandler(async (req: SecureRequest, res: Response) => {
+        const { secret, token } = req.body;
+        if (!secret || !token) {
+            throw new BadRequestError("Secret and token are required");
+        }
+
+        const recoveryCodes = await this.authService.verifyAndEnable2FA(req.user!.id, secret, token);
+
+        return res.status(200).json({
+            success: true,
+            message: "2FA activée avec succès",
+            data: { recoveryCodes }
+        });
+    })
+
+    disable2FA = AsyncHandler(async (req: SecureRequest, res: Response) => {
+        const { password } = req.body;
+        await this.authService.disable2FA(req.user!.id, password);
+
+        return res.status(200).json({
+            success: true,
+            message: "2FA désactivée avec succès"
+        });
+    })
+
+    verify2FALogin = AsyncHandler(async (req: Request, res: Response) => {
+        const { userId, token } = req.body;
+        if (!userId || !token) {
+            throw new BadRequestError("User ID and token are required");
+        }
+
+        const { accessToken, refreshToken, user } = await this.authService.verify2FALogin(userId, token);
+        this.setTokenCookies(res, { accessToken, refreshToken });
+
+        return res.status(200).json({
+            success: true,
+            message: "Connexion 2FA réussie",
+            data: user
         });
     })
 }

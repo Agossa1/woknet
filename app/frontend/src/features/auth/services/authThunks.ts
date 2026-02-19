@@ -187,3 +187,18 @@ export const completeOnboardingThunk = createAsyncThunk<{ success: boolean }, On
         }
     }
 );
+
+export const verify2FAThunk = createAsyncThunk<{ user: User }, { userId: string; token: string }>(
+    "auth/verify2FA",
+    async (data, { rejectWithValue }) => {
+        try {
+            const response = await authServices.verify2FA(data);
+            return { user: response.data };
+        } catch (error) {
+            if (error instanceof ApiError) {
+                return rejectWithValue(error.message || "Erreur lors de la vérification 2FA");
+            }
+            return rejectWithValue("Échec de la vérification 2FA");
+        }
+    }
+);

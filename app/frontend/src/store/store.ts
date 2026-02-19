@@ -15,6 +15,9 @@ import notificationsReducer from '@/src/features/notifications/services/notifica
 import { chatReducer } from '../features/chat/services/chat-slice';
 import workspacesReducer from "../features/workspaces/services/workspaces-slice";
 import companiesReducer from "../features/companies/services/companies-slice";
+import languagesReducer from "../features/languages/services/language-slices";
+import certificationsReducer from "../features/certifications/services/certification-slices";
+import featuredReducer from "../features/featured-content/services/featured-slices";
 
 const rootReducer = combineReducers({
     auth: authReducer,
@@ -32,7 +35,10 @@ const rootReducer = combineReducers({
     notifications: notificationsReducer,
     chat: chatReducer,
     workspaces: workspacesReducer,
-    companies: companiesReducer
+    companies: companiesReducer,
+    languages: languagesReducer,
+    certifications: certificationsReducer,
+    featured: featuredReducer
 })
 
 

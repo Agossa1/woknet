@@ -108,4 +108,32 @@ export class SkillsServices {
             throw new InternalServerError("Error removing endorsement");
         }
     }
+
+    // ------------------------------------------------------------------
+    // Categories
+    // ------------------------------------------------------------------
+
+    async createCategory(profileId: string, name: string): Promise<any> {
+        return await this.skillsRepository.createCategory(profileId, name);
+    }
+
+    async getProfileCategories(profileId: string): Promise<any[]> {
+        return await this.skillsRepository.getProfileCategories(profileId);
+    }
+
+    async deleteCategory(id: string): Promise<void> {
+        await this.skillsRepository.deleteCategory(id);
+    }
+
+    async mapSkillToCategory(categoryId: string, skillId: string, profileId: string): Promise<void> {
+        await this.skillsRepository.mapSkillToCategory(categoryId, skillId, profileId);
+    }
+
+    async unmapSkillFromCategory(categoryId: string, skillId: string): Promise<void> {
+        await this.skillsRepository.unmapSkillFromCategory(categoryId, skillId);
+    }
+
+    async getSkillsByCategory(categoryId: string): Promise<any[]> {
+        return await this.skillsRepository.getSkillsByCategory(categoryId);
+    }
 }

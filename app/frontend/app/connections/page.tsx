@@ -1,40 +1,30 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Search, MoreHorizontal, UserPlus, MessageSquare } from "lucide-react";
+import { Search, MoreHorizontal, UserPlus, MessageSquare, ArrowLeft } from "lucide-react";
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
-import { getFollowingThunk } from '@/src/features/follows/services/follows-thunks';
+import { getFollowingThunk, toggleFollowThunk } from '@/src/features/follows/services/follows-thunks';
 import { fetchProfileSuggestionsThunk } from '@/src/features/recommendations/services/recommendations-thunks';
 import Link from 'next/link';
+
+const iconStroke = 1.25;
 
 export default function ConnectionsPage() {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
-  const { followingByProfile } = useAppSelector((state) => state.follows);
+  const { followingByProfile, isFollowingMap } = useAppSelector((state) => state.follows);
   const { profileSuggestions } = useAppSelector((state) => state.recommendations);
 
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Get connections for current user
   const connections = user?.id ? (followingByProfile[user.id] || []) : [];
 
   useEffect(() => {
     if (user?.id) {
-      console.log('Fetching following for user:', user.id);
       dispatch(getFollowingThunk(user.id));
       dispatch(fetchProfileSuggestionsThunk(3));
     }
   }, [dispatch, user?.id]);
-
-  // Debug: log what we have
-  useEffect(() => {
-    console.log('ConnectionsPage Debug:', {
-      userId: user?.id,
-      followingByProfile,
-      connections: connections.length,
-      connectionsData: connections
-    });
-  }, [user, followingByProfile, connections]);
 
   const filteredConnections = connections.filter(c =>
     c.display_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -43,139 +33,158 @@ export default function ConnectionsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 p-6 lg:p-8 font-sans">
-      <div className="max-w-6xl mx-auto space-y-8">
+    <div className="min-h-screen bg-[#F4F2EE] dark:bg-black p-6 md:p-10 font-sans antialiased text-neutral-800">
+      <div className="max-w-5xl mx-auto w-full space-y-6">
 
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-extrabold uppercase tracking-tight text-gray-900 dark:text-white">
-              Mon Réseau<span className="text-blue-600">.</span>
-            </h1>
-            <p className="text-gray-500 mt-2 text-sm font-medium">Gérez vos relations et découvrez de nouvelles opportunités.</p>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+        <div className="pb-6 border-b border-neutral-300/60 dark:border-neutral-800">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white mb-2"
+          >
+            <ArrowLeft size={14} strokeWidth={iconStroke} />
+            <span>Retour à l'espace pro</span>
+          </Link>
+          <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white tracking-tight font-inter">
+            Mon réseau
+          </h1>
+          <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium mt-1 max-w-md">
+            Gérez vos relations et découvrez de nouvelles opportunités.
+          </p>
+        </div>
+
+        <div className="flex flex-col md:flex-row gap-6">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-400" size={18} strokeWidth={iconStroke} />
             <input
               type="text"
               placeholder="Rechercher une personne..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-full bg-white dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white focus:border-transparent w-full md:w-80 transition-shadow shadow-sm placeholder:text-gray-400"
+              className="w-full pl-11 pr-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-sm font-medium text-neutral-900 dark:text-white placeholder:text-neutral-400 focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all"
             />
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-          {/* Main Connections Grid */}
+          {/* Vos relations */}
           <div className="lg:col-span-8">
-            <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm overflow-hidden min-h-[400px] flex flex-col">
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-white dark:bg-gray-900">
-                <h2 className="font-bold text-lg text-gray-900 dark:text-white uppercase tracking-wide flex items-center gap-3">
+            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-sm overflow-hidden min-h-[320px] flex flex-col">
+              <div className="px-5 py-4 border-b border-neutral-200 dark:border-neutral-800">
+                <h2 className="text-[15px] font-semibold text-neutral-900 dark:text-white font-inter flex items-center gap-2">
                   Vos relations
-                  <span className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-xs font-bold text-gray-600 dark:text-gray-400">
+                  <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
                     {filteredConnections.length}
                   </span>
                 </h2>
-                <button className="text-xs font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Récents</button>
               </div>
 
               {filteredConnections.length === 0 ? (
                 <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
-                  <p className="text-gray-400 font-medium italic mb-8">
-                    {searchTerm ? "Aucune relation trouvée." : "Vous ne suivez personne pour le moment."}
+                  <div className="w-14 h-14 bg-neutral-50 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-5 border border-neutral-100 dark:border-neutral-700">
+                    <UserPlus className="text-neutral-300" size={26} strokeWidth={iconStroke} />
+                  </div>
+                  <p className="text-neutral-900 dark:text-white font-semibold text-sm">
+                    {searchTerm ? "Aucune relation trouvée" : "Vous ne suivez personne pour le moment"}
                   </p>
-                  <button className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors">Voir tout</button>
+                  <p className="text-neutral-500 dark:text-neutral-400 text-xs font-medium mt-1">
+                    {searchTerm ? "Essayez une autre recherche." : "Découvrez des profils dans les suggestions."}
+                  </p>
                 </div>
               ) : (
-                <>
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-2 gap-px bg-gray-100 dark:bg-gray-800">
-                    {filteredConnections.map(connection => (
-                      <div key={connection.user_id} className="bg-white dark:bg-gray-900 p-5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition duration-200 group flex flex-col h-full">
-                        <div className="flex items-start justify-between mb-3">
-                          <Link href={`/profile/${connection.user_id}`}>
-                            <img
-                              src={connection.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${connection.username}`}
-                              alt={connection.display_name}
-                              className="w-12 h-12 rounded-full border border-gray-200 dark:border-gray-700 object-cover bg-gray-50"
-                            />
-                          </Link>
-                          <button className="text-gray-300 hover:text-gray-600 dark:hover:text-gray-200 transition">
-                            <MoreHorizontal size={18} />
-                          </button>
-                        </div>
-
-                        <Link href={`/profile/${connection.user_id}`} className="block flex-1 mb-4">
-                          <h3 className="font-bold text-gray-900 dark:text-white text-base leading-tight group-hover:text-blue-600 transition-colors">
-                            {connection.display_name}
-                          </h3>
-                          <p className="text-xs text-gray-500 font-medium mt-1 line-clamp-1">
-                            {connection.headline || connection.username}
-                          </p>
+                <div className="grid sm:grid-cols-2 gap-4 p-5">
+                  {filteredConnections.map(connection => (
+                    <div key={connection.user_id} className="bg-neutral-50/50 dark:bg-neutral-800/30 p-4 rounded-lg border border-neutral-100 dark:border-neutral-800 hover:border-[#0A66C2]/30 transition-colors group flex flex-col">
+                      <div className="flex items-start justify-between mb-3">
+                        <Link href={`/profile/${connection.user_id}`}>
+                          <img
+                            src={connection.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${connection.username}`}
+                            alt={connection.display_name}
+                            className="w-11 h-11 rounded-full border border-neutral-200 dark:border-neutral-700 object-cover"
+                          />
                         </Link>
-
-                        <div className="flex gap-2">
-                          <Link href={`/profile/${connection.user_id}`} className="flex-1 py-1.5 text-center border border-gray-200 dark:border-gray-700 rounded-lg text-xs font-semibold text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                            Profil
-                          </Link>
-                          <Link href={`/messages`} className="p-1.5 border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition flex items-center justify-center">
-                            <MessageSquare size={16} />
-                          </Link>
-                        </div>
+                        <button className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 p-1 rounded transition-colors">
+                          <MoreHorizontal size={16} strokeWidth={iconStroke} />
+                        </button>
                       </div>
-                    ))}
-                  </div>
-
-                  <div className="p-4 bg-white dark:bg-gray-900 text-center border-t border-gray-100 dark:border-gray-800 mt-auto">
-                    <button className="text-xs font-bold uppercase tracking-widest text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">Voir tout</button>
-                  </div>
-                </>
+                      <Link href={`/profile/${connection.user_id}`} className="block flex-1 mb-3">
+                        <h3 className="font-semibold text-neutral-900 dark:text-white text-[14px] group-hover:text-[#0A66C2] transition-colors font-inter">
+                          {connection.display_name}
+                        </h3>
+                        <p className="text-[12px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5 line-clamp-1">
+                          {connection.headline || connection.username}
+                        </p>
+                      </Link>
+                      <div className="flex gap-2">
+                        <Link href={`/profile/${connection.user_id}`} className="flex-1 py-1.5 text-center border border-neutral-200 dark:border-neutral-700 rounded-lg text-[12px] font-semibold text-neutral-600 dark:text-neutral-400 hover:border-[#0A66C2] hover:text-[#0A66C2] transition-colors">
+                          Profil
+                        </Link>
+                        <Link href="/messages" className="p-1.5 border border-neutral-200 dark:border-neutral-700 rounded-lg text-neutral-500 hover:text-[#0A66C2] hover:border-[#0A66C2]/50 transition-colors flex items-center justify-center">
+                          <MessageSquare size={14} strokeWidth={iconStroke} />
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
 
-          {/* Sidebar Suggestions */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-gray-50 dark:bg-gray-800/30 rounded-2xl p-6 border border-gray-100 dark:border-gray-800 h-auto">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="font-bold text-gray-900 dark:text-white text-xs uppercase tracking-widest">Suggestions</h2>
-                <button className="text-[10px] font-bold text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 uppercase tracking-wider">Voir tout</button>
-              </div>
-
-              <div className="space-y-5">
+          {/* Sidebar */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-5 shadow-sm">
+              <h2 className="text-[15px] font-semibold text-neutral-900 dark:text-white font-inter mb-4">
+                Suggestions
+              </h2>
+              <div className="space-y-4">
                 {profileSuggestions.length === 0 ? (
-                  <p className="text-sm text-gray-400 italic text-center py-4">Aucune suggestion pour le moment.</p>
+                  <p className="text-[13px] text-neutral-500 dark:text-neutral-400 font-medium text-center py-6">
+                    Aucune suggestion pour le moment.
+                  </p>
                 ) : (
-                  profileSuggestions.map(suggestion => (
-                    <div key={suggestion.id} className="flex items-center gap-3">
-                      <Link href={`/profile/${suggestion.user_id}`}>
-                        <img
-                          src={suggestion.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${suggestion.full_name}`}
-                          alt={suggestion.full_name}
-                          className="w-10 h-10 rounded-full bg-white border border-gray-200 dark:border-gray-700 object-cover"
-                        />
-                      </Link>
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/profile/${suggestion.user_id}`}>
-                          <h4 className="font-semibold text-gray-900 dark:text-white text-sm truncate hover:text-blue-600 transition-colors">{suggestion.full_name}</h4>
+                  profileSuggestions.map(suggestion => {
+                    const isFollowing = isFollowingMap[suggestion.id];
+                    return (
+                      <div key={suggestion.id} className="flex items-center gap-3">
+                        <Link href={`/profile/${suggestion.id}`}>
+                          <img
+                            src={suggestion.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${suggestion.full_name}`}
+                            alt={suggestion.full_name}
+                            className="w-10 h-10 rounded-full border border-neutral-200 dark:border-neutral-700 object-cover"
+                          />
                         </Link>
-                        <p className="text-xs text-gray-500 truncate">{suggestion.headline}</p>
+                        <div className="flex-1 min-w-0">
+                          <Link href={`/profile/${suggestion.id}`}>
+                            <h4 className="font-semibold text-neutral-900 dark:text-white text-[13px] truncate hover:text-[#0A66C2] transition-colors font-inter">{suggestion.full_name}</h4>
+                          </Link>
+                          <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate font-medium">{suggestion.headline}</p>
+                        </div>
+                        <button
+                          onClick={() => dispatch(toggleFollowThunk(suggestion.id))}
+                          className={`p-2 rounded-lg border transition-colors ${
+                            isFollowing
+                              ? "bg-neutral-100 dark:bg-neutral-800 border-neutral-200 dark:border-neutral-700 text-neutral-500"
+                              : "border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:border-[#0A66C2] hover:text-[#0A66C2]"
+                          }`}
+                        >
+                          <UserPlus size={16} strokeWidth={iconStroke} />
+                        </button>
                       </div>
-                      <button className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:border-blue-500 hover:text-blue-600 transition-colors text-gray-400">
-                        <UserPlus size={16} />
-                      </button>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
 
-            <div className="bg-black dark:bg-white rounded-2xl p-8 text-white dark:text-black text-center shadow-lg">
-              <h3 className="font-extrabold text-xl italic uppercase mb-2">Invitez<br />vos amis</h3>
-              <p className="text-sm opacity-70 mb-6 font-medium leading-relaxed">Développez votre réseau en invitant vos connaissances à rejoindre WorkNet.</p>
-
-              <button className="w-full py-3 bg-white dark:bg-black text-black dark:text-white font-bold uppercase tracking-wider rounded-full text-xs hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors">
+            <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm">
+              <h3 className="text-[15px] font-semibold text-neutral-900 dark:text-white font-inter mb-2">
+                Invitez vos amis
+              </h3>
+              <p className="text-[13px] text-neutral-500 dark:text-neutral-400 font-medium leading-relaxed mb-5">
+                Développez votre réseau en invitant vos connaissances à rejoindre WorkNet.
+              </p>
+              <button className="w-full py-2.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-[13px] font-semibold rounded-lg shadow-sm transition-colors">
                 Envoyer une invitation
               </button>
             </div>

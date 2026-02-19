@@ -109,7 +109,7 @@ export const PhotoUploadModal = ({ isOpen, type, currentImageUrl, onClose, onUpl
                                     </div>
                                     <div className="text-center">
                                         <p className="text-sm font-bold text-gray-900 dark:text-white">Cliquez pour parcourir</p>
-                                        <p className="text-xs text-gray-400 font-medium tracking-tight">JPG, PNG ou GIF (max. 5MB)</p>
+                                        <p className="text-xs text-gray-400 font-medium tracking-tight">jpg, png ou gif (max. 5mb)</p>
                                     </div>
                                 </>
                             )}

@@ -14,6 +14,9 @@ export const companiesApi = {
     createCompany: (dto: CreateCompanyDTO) =>
         api.post<CompanyResponse<Company>>("/companies", dto),
 
+    getCompanyById: (id: string) =>
+        api.get<CompanyResponse<Company>>(`/companies/id/${id}`),
+
     getCompanyBySlug: (slug: string) =>
         api.get<CompanyResponse<Company>>(`/companies/${slug}`),
 

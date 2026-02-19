@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Users, Briefcase, User, MessageSquare, LogOut, Settings, X, LogIn, UserPlus, Bell, Layers, Building2 } from "lucide-react";
+import { Home, Users, Briefcase, User, MessageSquare, LogOut, Settings, X, LogIn, UserPlus, Bell, Layers, Building2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useSidebar } from "../../../src/providers/sidebar-provider";
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from "react";
@@ -19,7 +19,7 @@ const defaultLinks = [
 ];
 
 export function AppSidebar() {
-  const { isOpen, toggleSidebar } = useSidebar();
+  const { isOpen, isCollapsed, toggleSidebar, toggleCollapsed } = useSidebar();
   const { isAuthenticated, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -30,8 +30,6 @@ export function AppSidebar() {
   }, []);
 
   const isActive = (path: string) => pathname === path;
-
-  // Standard icon stroke
   const iconStroke = 1.5;
 
   const handleLinkClick = () => {
@@ -45,31 +43,48 @@ export function AppSidebar() {
       {/* Mobile Overlay */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          className="fixed inset-0 bg-white/80 dark:bg-black/80 z-40 lg:hidden"
           onClick={toggleSidebar}
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800 lg:static lg:h-screen lg:flex lg:flex-col transition-all duration-300 ${isOpen ? "opacity-100 visible translate-x-0" : "opacity-0 invisible -translate-x-4 lg:opacity-100 lg:visible lg:translate-x-0"
+        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 lg:static lg:h-screen lg:flex lg:flex-col transition-none ${isCollapsed ? "w-20" : "w-64"} ${isOpen ? "visible" : "invisible lg:visible"
           }`}
       >
         {/* Header / Logo */}
-        <div className="h-14 flex items-center justify-between px-4 border-b border-gray-100 dark:border-gray-800">
-          <Link href="/feed" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-neutral-900 dark:bg-white rounded flex items-center justify-center">
-              <span className="text-white dark:text-black font-semibold text-base">W</span>
+        <div className={`h-16 flex items-center border-b border-neutral-100 dark:border-neutral-800 px-5 ${isCollapsed ? "justify-center" : "justify-between"}`}>
+          <Link href="/feed" className="flex items-center gap-3 overflow-hidden">
+            <div className="w-8 h-8 bg-neutral-950 dark:bg-white rounded-none flex items-center justify-center shrink-0">
+              <span className="text-white dark:text-black font-extrabold text-[15px]">W</span>
             </div>
-            <span className="font-semibold text-lg tracking-tight hidden lg:block dark:text-white">WorkNet</span>
+            {!isCollapsed && <span className="font-bold text-[17px] tracking-tight text-neutral-900 dark:text-white truncate">WorkNet</span>}
           </Link>
-          <button onClick={toggleSidebar} className="lg:hidden p-1 text-gray-500 hover:text-gray-900">
-            <X size={20} strokeWidth={iconStroke} />
-          </button>
+
+          {!isCollapsed && (
+            <button
+              onClick={toggleCollapsed}
+              className="p-1.5 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-none"
+            >
+              <ChevronLeft size={16} strokeWidth={2} />
+            </button>
+          )}
         </div>
 
         {/* Navigation Links */}
-        <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
+        <nav className="flex-1 py-4 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          {isCollapsed && (
+            <div className="px-3 mb-2 flex justify-center">
+              <button
+                onClick={toggleCollapsed}
+                className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-none"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          )}
+
           {defaultLinks.map((link) => {
             const Icon = link.icon;
             const active = isActive(link.href);
@@ -77,33 +92,53 @@ export function AppSidebar() {
               <Link
                 key={link.href}
                 href={link.href}
-                className={`flex items-center gap-3 p-2.5 rounded transition group ${active
-                  ? "bg-neutral-50 dark:bg-gray-800 text-black dark:text-white font-semibold"
-                  : "text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50/50 dark:hover:bg-gray-800/50 hover:text-black dark:hover:text-white"
-                  }`}
+                className={`flex items-center gap-3 py-2.5 px-5 transition-none group relative ${active
+                  ? "text-neutral-900 dark:text-white font-bold"
+                  : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
+                  } ${isCollapsed ? "justify-center px-0" : ""}`}
                 onClick={handleLinkClick}
               >
+                {/* Active Indicator Flat */}
+                {active && !isCollapsed && (
+                  <div className="absolute left-0 top-2 bottom-2 w-[4px] bg-neutral-950 dark:bg-white" />
+                )}
+                {active && isCollapsed && (
+                  <div className="absolute left-2 top-3 bottom-3 w-[4px] bg-neutral-950 dark:bg-white" />
+                )}
+
                 <Icon
-                  size={18}
-                  className={active ? "text-black dark:text-white" : "text-neutral-400 dark:text-neutral-500 group-hover:text-black dark:group-hover:text-white"}
-                  strokeWidth={iconStroke}
+                  size={20}
+                  className="shrink-0 transition-none"
+                  strokeWidth={active ? 2 : iconStroke}
                 />
-                <span className="text-sm tracking-tight">{link.label}</span>
+                {!isCollapsed && <span className="text-[14px] tracking-tight truncate">{link.label}</span>}
+
+                {isCollapsed && (
+                  <div className="absolute left-16 opacity-0 group-hover:opacity-100 pointer-events-none transition-none z-[100] bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 px-3 py-2 text-[10px] font-bold whitespace-nowrap border border-neutral-900 dark:border-neutral-200">
+                    {link.label}
+                  </div>
+                )}
               </Link>
             );
           })}
         </nav>
 
         {/* Bottom Actions */}
-        <div className="p-3 border-t border-gray-100 dark:border-gray-800 space-y-0.5">
+        <div className="py-4 border-t border-neutral-200 dark:border-neutral-800 space-y-1">
           <Link
             href="/settings"
-            className="flex items-center gap-3 p-2.5 rounded text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50/50 dark:hover:bg-gray-800/50 hover:text-black dark:hover:text-white transition group"
+            className={`flex items-center gap-3 py-2.5 px-5 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-none group relative ${isCollapsed ? "justify-center px-0" : ""}`}
             onClick={handleLinkClick}
           >
-            <Settings size={18} strokeWidth={iconStroke} className="text-neutral-400 dark:text-neutral-500 group-hover:text-black dark:group-hover:text-white" />
-            <span className="text-sm font-medium tracking-tight">Paramètres</span>
+            <Settings size={20} className="transition-none shrink-0" strokeWidth={iconStroke} />
+            {!isCollapsed && <span className="text-[14px] tracking-tight truncate">Paramètres</span>}
+            {isCollapsed && (
+              <div className="absolute left-16 opacity-0 group-hover:opacity-100 pointer-events-none transition-none z-[100] bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 px-3 py-2 text-[10px] font-bold whitespace-nowrap border border-neutral-900 dark:border-neutral-200">
+                Paramètres
+              </div>
+            )}
           </Link>
+
           {mounted && isAuthenticated ? (
             <button
               onClick={async () => {
@@ -116,30 +151,26 @@ export function AppSidebar() {
                   if (typeof window !== 'undefined' && window.innerWidth < 1024) toggleSidebar();
                 }
               }}
-              className="w-full flex items-center gap-3 p-2.5 rounded text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition group"
+              className={`w-full flex items-center gap-3 py-2.5 px-5 text-neutral-400 dark:text-neutral-500 hover:text-red-600 transition-none group relative ${isCollapsed ? "justify-center px-0" : ""}`}
             >
-              <LogOut size={18} strokeWidth={iconStroke} />
-              <span className="text-sm font-medium tracking-tight">Déconnexion</span>
+              <LogOut size={20} strokeWidth={iconStroke} className="shrink-0 transition-none" />
+              {!isCollapsed && <span className="text-[14px] font-medium tracking-tight truncate">Déconnexion</span>}
+              {isCollapsed && (
+                <div className="absolute left-16 opacity-0 group-hover:opacity-100 pointer-events-none transition-none z-[100] bg-red-600 text-white px-3 py-2 text-[10px] font-bold whitespace-nowrap border border-red-700">
+                  Déconnexion
+                </div>
+              )}
             </button>
           ) : (
-            <>
-              <Link
-                href="/auth/sign-up"
-                onClick={handleLinkClick}
-                className="w-full flex items-center gap-3 p-2.5 rounded text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50/50 dark:hover:bg-gray-800/50 hover:text-black dark:hover:text-white transition group"
-              >
-                <UserPlus size={18} strokeWidth={iconStroke} />
-                <span className="text-sm font-medium tracking-tight">S'inscrire</span>
-              </Link>
+            <div className="space-y-1 px-4">
               <Link
                 href="/auth/sign-in"
                 onClick={handleLinkClick}
-                className="w-full flex items-center gap-3 p-2.5 rounded text-neutral-500 dark:text-neutral-400 hover:bg-neutral-50/50 dark:hover:bg-gray-800/50 hover:text-black dark:hover:text-white transition group"
+                className={`flex items-center justify-center py-2.5 bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 text-xs font-bold border border-neutral-950 dark:border-white transition-none ${isCollapsed ? "w-10 h-10 px-0" : "w-full"}`}
               >
-                <LogIn size={18} strokeWidth={iconStroke} />
-                <span className="text-sm font-medium tracking-tight">Se connecter</span>
+                {isCollapsed ? <LogIn size={18} /> : <span>Se connecter</span>}
               </Link>
-            </>
+            </div>
           )}
         </div>
       </aside>

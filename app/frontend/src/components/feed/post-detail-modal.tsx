@@ -136,6 +136,7 @@ export default function PostDetailModal({ isOpen, onClose, post }: PostDetailMod
                                 <VideoPlayer
                                     src={mediaUrls[currentMediaIndex]}
                                     className="max-w-full max-h-full"
+                                    autoPlayOnMount
                                 />
                             ) : (
                                 <img
@@ -160,14 +161,20 @@ export default function PostDetailModal({ isOpen, onClose, post }: PostDetailMod
                                 </div>
                             )}
                         </div>
-                    ) : post.background_color && post.background_color !== 'none' ? (
-                        <div className={`w-full h-full flex items-center justify-center p-12 text-center relative ${POST_BACKGROUND_PRESETS.find(p => p.id === post.background_color)?.class || ''}`}>
-                            <div className="absolute inset-0 bg-black/5 pointer-events-none" />
-                            <p className="text-3xl font-bold leading-tight drop-shadow-sm z-10 max-w-2xl">
-                                {post.content}
-                            </p>
-                        </div>
-                    ) : (
+                    ) : post.background_color && post.background_color !== 'none' ? (() => {
+                        const preset = POST_BACKGROUND_PRESETS.find(p => p.id === post.background_color);
+                        return (
+                            <div
+                                className={`w-full h-full flex items-center justify-center p-12 text-center relative ${preset?.class || ''}`}
+                                style={preset?.style || {}}
+                            >
+                                <div className="absolute inset-0 bg-black/5 pointer-events-none" />
+                                <p className="text-3xl font-bold leading-tight drop-shadow-sm z-10 max-w-2xl text-center">
+                                    {post.content}
+                                </p>
+                            </div>
+                        );
+                    })() : (
                         <div className="text-gray-500 font-medium italic">Aucun média à afficher</div>
                     )}
                 </div>

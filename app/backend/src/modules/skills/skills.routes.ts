@@ -65,6 +65,27 @@ export class SkillsRouter {
             this.controller.removeEndorsement.bind(this.controller)
         );
 
+        // --- Categories ---
+        // GET /api/profiles/:profileId/skill-categories
+        profileRouter.get(
+            '/:profileId/skill-categories',
+            this.controller.getCategories.bind(this.controller)
+        );
+
+        // POST /api/profiles/:profileId/skill-categories
+        profileRouter.post(
+            '/:profileId/skill-categories',
+            AuthGuard.authenticate,
+            this.controller.createCategory.bind(this.controller)
+        );
+
+        // DELETE /api/profiles/:profileId/skill-categories/:id
+        profileRouter.delete(
+            '/:profileId/skill-categories/:id',
+            AuthGuard.authenticate,
+            this.controller.deleteCategory.bind(this.controller)
+        );
+
         return profileRouter;
     }
 

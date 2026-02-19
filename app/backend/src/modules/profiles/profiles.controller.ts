@@ -22,7 +22,7 @@ export class ProfilesController {
         this.logger.instance.info(`[ProfilesController] Fetching profile for User ID: ${userId}`);
         const profile = await this.profileService.getProfileByUserId(userId);
         if (!profile) {
-            this.logger.instance.warn(`[ProfilesController] Profile not found for User ID: ${userId}`);
+            this.logger.instance.info(`[ProfilesController] Profile not found for User ID: ${userId}`);
             return res.status(404).json({ success: false, message: "Profile not found" });
         }
         this.logger.instance.info(`[ProfilesController] Profile fetched successfully for User ID: ${userId}`);
@@ -65,5 +65,33 @@ export class ProfilesController {
                 message: "Failed to update profile"
             });
         }
+    })
+
+    // GET /profiles/search?query=...
+    searchProfiles = AsyncHandler(async (req: Request, res: Response) => {
+        const query = req.query.query as string;
+        const limit = parseInt(req.query.limit as string) || 10;
+
+        this.logger.instance.info(`[ProfilesController] Searching profiles with query: ${query}`);
+        const profiles = await this.profileService.searchProfilesService(query, limit);
+
+        return res.json({
+            success: true,
+            data: profiles
+        });
+    })
+
+    // GET /profiles/recommendations
+    getRecommendedProfiles = AsyncHandler(async (req: any, res: Response) => {
+        const userId = req.user?.id;
+        if (!userId) return res.status(401).json({ success: false, message: "Unauthorized" });
+
+        this.logger.instance.info(`[ProfilesController] Fetching recommendations for User ID: ${userId}`);
+        const profiles = await this.profileService.getRecommendedProfiles(userId);
+
+        return res.json({
+            success: true,
+            data: profiles // Le champ 'score' sera visible ici
+        });
     })
 }

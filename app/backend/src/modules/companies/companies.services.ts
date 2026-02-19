@@ -34,6 +34,12 @@ export class CompaniesService {
         return company;
     }
 
+    async getCompanyById(id: string): Promise<Company> {
+        const company = await this.repository.getCompanyById(id);
+        if (!company) throw new NotFoundException("Entreprise non trouvée.");
+        return company;
+    }
+
     async updateCompany(userId: string, companyId: string, dto: UpdateCompanyDTO): Promise<Company> {
         const company = await this.repository.getCompanyById(companyId);
         if (!company) throw new NotFoundException("Entreprise non trouvée.");

@@ -97,4 +97,50 @@ export class SkillsController {
             res.status(500).json({ error: "Failed to remove endorsement" });
         }
     }
+
+    // ------------------------------------------------------------------
+    // Categories
+    // ------------------------------------------------------------------
+
+    async createCategory(req: Request, res: Response): Promise<void> {
+        const profileId = req.params.profileId as string;
+        const { name } = req.body;
+        try {
+            const result = await this.services.createCategory(profileId, name);
+            res.status(201).json(result);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to create category" });
+        }
+    }
+
+    async getCategories(req: Request, res: Response): Promise<void> {
+        const profileId = req.params.profileId as string;
+        try {
+            const result = await this.services.getProfileCategories(profileId);
+            res.status(200).json(result);
+        } catch (error) {
+            res.status(500).json({ error: "Failed to fetch categories" });
+        }
+    }
+
+    async deleteCategory(req: Request, res: Response): Promise<void> {
+        const id = req.params.id as string;
+        try {
+            await this.services.deleteCategory(id);
+            res.status(204).send();
+        } catch (error) {
+            res.status(500).json({ error: "Failed to delete category" });
+        }
+    }
+
+    async mapSkill(req: Request, res: Response): Promise<void> {
+        const categoryId = req.params.categoryId as string;
+        const { skill_id, profile_id } = req.body;
+        try {
+            await this.services.mapSkillToCategory(categoryId, skill_id, profile_id);
+            res.status(200).json({ success: true });
+        } catch (error) {
+            res.status(500).json({ error: "Failed to map skill" });
+        }
+    }
 }

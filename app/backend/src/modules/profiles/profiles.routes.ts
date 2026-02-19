@@ -18,6 +18,18 @@ export class ProfilesRouter {
 
     private initializeRoutes(): void {
         this.router.get(
+            '/search',
+            AuthGuard.authenticate,
+            this.controller.searchProfiles
+        );
+
+        this.router.get(
+            '/recommendations',
+            AuthGuard.authenticate,
+            this.controller.getRecommendedProfiles
+        );
+
+        this.router.get(
             '/get-profile/:userId',
             AuthGuard.authenticate,
             this.controller.getProfileByUserId

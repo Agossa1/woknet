@@ -1,16 +1,18 @@
 'use client';
 
-import { Camera, Plus, UserPlus, Mail, UserMinus, MessageSquare } from "lucide-react";
+import { Camera, Plus, Mail, Shield, MoreHorizontal } from "lucide-react";
 import { User } from "@/src/features/auth/services/authTypes";
 import { ProfileData as Profile } from "@/src/features/profiles/services/profile-types";
-import { ProfileContactBar } from "./profile-contact-bar";
 import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import { toggleFollowThunk, checkFollowStatusThunk, getFollowCountsThunk } from "@/src/features/follows/services/follows-thunks";
 import { useEffect } from "react";
 import { selectAuthUser } from "@/src/features/auth/services/authSelectors";
 
+import { startConversationThunk } from "@/src/features/chat/services/chat-thunks";
+import { useRouter } from "next/navigation";
+
 interface ProfileHeaderProps {
-    user: User; // This is the user whose profile we are viewing
+    user: User;
     profile: Profile | null;
     onEdit: () => void;
     onOpenPhotoModal: (type: 'avatar' | 'banner') => void;
@@ -20,6 +22,7 @@ interface ProfileHeaderProps {
 
 export const ProfileHeader = ({ user, profile, onEdit, onOpenPhotoModal, onOpenFollowers, onOpenFollowing }: ProfileHeaderProps) => {
     const dispatch = useAppDispatch();
+    const router = useRouter();
     const currentUser = useAppSelector(selectAuthUser);
     const isOwnProfile = currentUser?.id === user.id;
 
@@ -41,139 +44,134 @@ export const ProfileHeader = ({ user, profile, onEdit, onOpenPhotoModal, onOpenF
         dispatch(toggleFollowThunk(user.id));
     };
 
-    return (
-        <>
-            {/* Banner / Cover Photo Section */}
-            <div className="relative h-44 md:h-64 w-full bg-gray-100 dark:bg-gray-800 overflow-hidden group rounded-b-lg md:rounded-b-none shadow-inner">
-                {profile?.banner_url ? (
-                    <img
-                        src={profile.banner_url}
-                        alt="Cover"
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-gray-300 dark:text-gray-700">
-                        <Camera size={40} strokeWidth={1} className="opacity-20" />
-                    </div>
-                )}
+    const handleStartConversation = async () => {
+        if (!currentUser?.id || isOwnProfile) return;
+        try {
+            const resultAction = await dispatch(startConversationThunk(user.id));
+            if (startConversationThunk.fulfilled.match(resultAction)) {
+                const conversation = resultAction.payload;
+                router.push(`/messages?conversationId=${conversation.id}`);
+            }
+        } catch (error) {
+            console.error("Failed to start conversation:", error);
+        }
+    };
 
-                {/* Edit Banner Button - Only for own profile */}
+    const iconStroke = 1.25;
+
+    return (
+        <section className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-sm relative">
+            {/* Banner Section */}
+            <div className="h-40 md:h-48 bg-neutral-50 dark:bg-neutral-800 relative group overflow-hidden">
+                {profile?.banner_url ? (
+                    <img src={profile.banner_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt="banner" />
+                ) : null}
+
                 {isOwnProfile && (
                     <button
                         onClick={() => onOpenPhotoModal('banner')}
-                        className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white p-2.5 rounded-full backdrop-blur-md transition-all opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                        className="absolute top-4 right-4 z-10 bg-white/90 hover:bg-white text-neutral-900 px-3 py-1.5 rounded flex items-center gap-2 text-[10px] font-bold tracking-tight"
                     >
-                        <Camera size={18} />
+                        <Camera size={14} strokeWidth={iconStroke} />
+                        Modifier la bannière
                     </button>
                 )}
-
-                <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black/60 via-black/20 to-transparent pointer-events-none" />
             </div>
 
-            {/* Header Info Section */}
-            <header className="relative flex flex-col md:flex-row gap-6 md:gap-8 items-start -mt-16 md:-mt-24 mb-1 max-w-6xl mx-auto px-4 md:px-6 lg:px-12 pb-6">
-                <div className="relative shrink-0 mx-auto md:mx-0">
-                    <div className="w-32 h-32 md:w-44 md:h-44 rounded-full overflow-hidden bg-white dark:bg-gray-900 border-[6px] border-white dark:border-gray-900 shadow-xl relative group">
+            {/* Overlapping Avatar Area */}
+            <div className="absolute top-24 md:top-28 left-6 md:left-10 z-[5]">
+                <div className="w-28 h-28 md:w-36 md:h-36 bg-white dark:bg-neutral-900 p-1 rounded-xl border-4 border-white dark:border-neutral-900 shadow-lg overflow-hidden relative">
+                    <div className="w-full h-full bg-neutral-50 dark:bg-neutral-800 rounded-lg flex items-center justify-center overflow-hidden relative">
                         <img
                             src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.full_name}`}
-                            alt="Profile"
+                            alt="avatar"
                             className="w-full h-full object-cover"
                         />
-
                         {isOwnProfile && (
                             <button
                                 onClick={() => onOpenPhotoModal('avatar')}
-                                className="absolute inset-0 bg-black/40 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                                className="absolute inset-0 bg-neutral-950/40 flex items-center justify-center text-white opacity-0 hover:opacity-100 transition-opacity"
                             >
-                                <Camera size={28} />
+                                <Camera size={24} strokeWidth={iconStroke} />
                             </button>
                         )}
                     </div>
-                    {user.is_active && (
-                        <div className="absolute bottom-4 right-4 w-6 h-6 bg-green-500 border-4 border-white dark:border-gray-900 rounded-full z-20 shadow-lg animate-pulse" />
-                    )}
                 </div>
+            </div>
 
-                <div className="flex-1 pt-2 md:pt-24 space-y-4 w-full text-center md:text-left">
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                        <div className="space-y-1.5 min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center justify-center md:justify-start gap-2">
-                                <h1 className="text-3xl md:text-4xl font-black tracking-tighter leading-none truncate">
-                                    {profile?.display_name || user.full_name}
+            <div className="pt-16 md:pt-20 pb-8 px-6 md:px-10">
+                <div className="flex flex-col gap-5">
+                    {/* Top Row: Name and Actions */}
+                    <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+                        <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                                <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white tracking-tight font-inter">
+                                    {user.full_name}
                                 </h1>
-                                {isOwnProfile && (
-                                    <button
-                                        onClick={onEdit}
-                                        className="inline-flex items-center justify-center gap-1.5 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white px-3.5 py-1.5 rounded-full font-bold text-[11px] hover:bg-gray-200 dark:hover:bg-gray-700 transition"
-                                    >
-                                        <Plus size={14} /> Modifier
-                                    </button>
-                                )}
+                                <Shield size={18} strokeWidth={iconStroke} className="text-[#0A66C2]" fill="currentColor" />
                             </div>
-                            <p className="text-sm md:text-lg text-gray-500 dark:text-gray-400 font-medium tracking-tight line-clamp-2 md:line-clamp-none max-w-2xl">
-                                {user.headline || "Prêt à relever de nouveaux défis"}
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 font-medium max-w-2xl leading-relaxed">
+                                {user.headline || "Expert passionné • Télécommunications • Prêt à relever de nouveaux défis"}
                             </p>
                         </div>
 
-                        {/* Actions for other profiles */}
-                        {!isOwnProfile && currentUser && (
-                            <div className="flex items-center justify-center gap-2 pt-2 md:pt-0">
-                                <button
-                                    onClick={handleFollowToggle}
-                                    className={`flex items-center justify-center gap-2 px-6 py-2.5 rounded-full font-bold text-sm transition-all shadow-lg active:scale-95 ${isFollowing
-                                        ? "bg-gray-200 dark:bg-gray-800 text-gray-900 dark:text-white hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 group"
-                                        : "bg-blue-600 text-white hover:bg-blue-700"
-                                        }`}
-                                >
-                                    {isFollowing ? (
-                                        <>
-                                            <UserMinus size={18} className="group-hover:hidden" />
-                                            <span className="group-hover:hidden whitespace-nowrap">Suivi(e)</span>
-                                            <span className="hidden group-hover:block whitespace-nowrap">Se désabonner</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <UserPlus size={18} />
-                                            <span className="whitespace-nowrap">Suivre</span>
-                                        </>
-                                    )}
+                        <div className="flex items-center gap-2">
+                            {isOwnProfile ? (
+                                <>
+                                    <button
+                                        onClick={onEdit}
+                                        className="px-5 py-2.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-[13px] font-semibold rounded-lg transition-colors shadow-sm"
+                                    >
+                                        Gérer le profil
+                                    </button>
+                                    <button className="p-2.5 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition text-neutral-500">
+                                        <Plus size={18} strokeWidth={2} />
+                                    </button>
+                                    
+                                </>
+                            ) : currentUser ? (
+                                <>
+                                <button onClick={handleStartConversation} className="flex items-center gap-2 px-4 py-2 text-sm font-medium transition-colors border rounded-lg border-neutral-200 text-neutral-700 hover:bg-neutral-50 active:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-800/50 dark:hover:text-white">
+                                <Mail size={18} strokeWidth={2} />
+                                <span>Messages</span>
                                 </button>
-                                <button className="flex items-center justify-center p-2.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition shadow-sm active:scale-95">
-                                    <MessageSquare size={20} />
-                                </button>
-                            </div>
-                        )}
+
+                                    <button
+                                        onClick={handleFollowToggle}
+                                        className={`px-6 py-2.5 rounded-lg font-semibold text-[13px] transition-colors shadow-sm ${isFollowing
+                                            ? "bg-neutral-100 dark:bg-neutral-800 text-neutral-600 dark:text-neutral-400 hover:bg-neutral-200 dark:hover:bg-neutral-700"
+                                            : "bg-[#0A66C2] hover:bg-[#004182] text-white"
+                                            }`}
+                                    >
+                                        {isFollowing ? "Ne plus suivre" : "Suivre"}
+                                    </button>
+                                    <button className="p-2.5 border border-neutral-200 dark:border-neutral-800 rounded-lg hover:bg-neutral-50 dark:hover:bg-neutral-800 transition text-neutral-500">
+                                        <MoreHorizontal size={20} />
+                                    </button>
+                                   
+                                </>
+                            ) : null}
+                        </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 pt-1">
+                    {/* Bottom Row: Stats & Secondary Info */}
+                    <div className="flex flex-wrap items-center gap-6 text-sm border-t border-neutral-200 dark:border-neutral-800 pt-5">
                         <div onClick={onOpenFollowers} className="flex items-center gap-2 cursor-pointer group">
-                            <span className="text-lg font-black text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors uppercase tabular-nums">
-                                {followCounts.followers}
-                            </span>
-                            <span className="text-[11px] font-black text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors uppercase tracking-wider">Abonnés</span>
+                            <span className="font-semibold text-neutral-900 dark:text-white group-hover:text-[#0A66C2] transition-colors">{followCounts.followers}</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 font-medium">Visiteurs</span>
                         </div>
                         <div onClick={onOpenFollowing} className="flex items-center gap-2 cursor-pointer group">
-                            <span className="text-lg font-black text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors uppercase tabular-nums">
-                                {followCounts.following}
-                            </span>
-                            <span className="text-[11px] font-black text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors uppercase tracking-wider">Abonnements</span>
+                            <span className="font-semibold text-neutral-900 dark:text-white group-hover:text-[#0A66C2] transition-colors">{followCounts.following}</span>
+                            <span className="text-neutral-500 dark:text-neutral-400 font-medium">Abonnés</span>
                         </div>
-
-                        <div className={`ml-auto md:ml-0 inline-flex items-center gap-2 px-3 py-1 rounded-full border ${user.is_active
-                            ? "border-green-100 bg-green-50/30 text-green-700 dark:border-green-900/20 dark:bg-green-900/10 dark:text-green-400"
-                            : "border-red-100 bg-red-50/30 text-red-700 dark:border-red-900/20 dark:bg-red-900/10 dark:text-red-400"
-                            }`}>
-                            <div className={`w-1.5 h-1.5 rounded-full ${user.is_active ? "bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]" : "bg-red-500"}`} />
-                            <span className="text-[10px] font-black uppercase tracking-widest">{user.is_active ? "Actif" : "Inactif"}</span>
+                        <div className="h-4 w-px bg-neutral-200 dark:border-neutral-700 hidden sm:block" />
+                        <div className="flex items-center gap-1.5 text-neutral-500 dark:text-neutral-400 font-medium">
+                            <Shield size={14} strokeWidth={iconStroke} className="text-[#0A66C2]" />
+                            <span>Identité vérifiée WorkNet</span>
                         </div>
-                    </div>
-
-                    {/* Contact Bar */}
-                    <div className="pt-4 border-t border-gray-100 dark:border-gray-800/50">
-                        <ProfileContactBar user={user} profile={profile} />
                     </div>
                 </div>
-            </header>
-        </>
+            </div>
+        </section>
     );
 };

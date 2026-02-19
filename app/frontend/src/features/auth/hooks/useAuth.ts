@@ -1,7 +1,7 @@
 import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import { selectAuthLoading, selectAuthUser, selectError, selectIsAuthenticated, selectSuccessMessage } from "../services/authSelectors"
 import { createUserDto, forgotPasswordDto, loginUserDto, resendCodeOtpDto, resetPasswordDto, updatePassword, verifyAccountDto } from "../services/authTypes";
-import { forgotPasswordThunk, loginThunk, logoutThunk, registerThunk, resendCodeOtpThunk, resetPasswordThunk, updatePasswordThunk, verifyAccountThunk, verifyOtpPasswordResetThunk, verifyResetTokenThunk } from "../services/authThunks";
+import { forgotPasswordThunk, loginThunk, logoutThunk, registerThunk, resendCodeOtpThunk, resetPasswordThunk, updatePasswordThunk, verifyAccountThunk, verifyOtpPasswordResetThunk, verifyResetTokenThunk, verify2FAThunk } from "../services/authThunks";
 import { clearAuthMessages as clearAuthMessagesAction } from "../services/authSlice";
 
 
@@ -57,6 +57,9 @@ export const useAuth = () => {
         return await dispatch(verifyResetTokenThunk(data)).unwrap();
     }
 
+    const handleVerify2FA = async (userId: string, token: string) => {
+        return await dispatch(verify2FAThunk({ userId, token })).unwrap();
+    }
 
     const handleClearAuthMessages = () => {
         dispatch(clearAuthMessagesAction());
@@ -80,6 +83,7 @@ export const useAuth = () => {
         updatePassword: handleUpdatePassword,
         verifyOtpPasswordReset: handleVerifyOtpPasswordReset,
         verifyResetToken: handleVerifyResetToken,
+        verify2FA: handleVerify2FA,
         clearAuthMessages: handleClearAuthMessages,
 
     }

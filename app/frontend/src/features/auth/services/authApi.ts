@@ -117,6 +117,34 @@ export class AuthServices {
             `${this.BASE_PATH}/job-types`
         );
     }
+
+    // 2FA Methods
+    public async setup2FA() {
+        return this.apiClient.get<{ success: boolean; data: { secret: string; qrCodeUrl: string } }>(
+            `${this.BASE_PATH}/2fa/setup`
+        );
+    }
+
+    public async enable2FA(dto: { secret: string; token: string }) {
+        return this.apiClient.post<{ success: boolean; message: string; data: { recoveryCodes: string[] } }>(
+            `${this.BASE_PATH}/2fa/enable`,
+            dto
+        );
+    }
+
+    public async disable2FA(dto: { password?: string }) {
+        return this.apiClient.post<{ success: boolean; message: string }>(
+            `${this.BASE_PATH}/2fa/disable`,
+            dto
+        );
+    }
+
+    public async verify2FA(dto: { userId: string; token: string }) {
+        return this.apiClient.post<{ success: boolean; message: string; data: User }>(
+            `${this.BASE_PATH}/2fa/verify`,
+            dto
+        );
+    }
 }
 
 // Export instance for use in thunks

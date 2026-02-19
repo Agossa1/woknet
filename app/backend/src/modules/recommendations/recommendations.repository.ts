@@ -1,178 +1,239 @@
 import PostgresDatabase from "../../config/databases/configDB";
 import { CreateSignalDTO } from "./recommendations.types";
-import Logger from "../../infra/logger/winston";
 
 export class RecommendationsRepository {
     private db: PostgresDatabase;
+    // Simple buffer en mémoire pour les signaux (pour éviter de spammer la DB)
+    private signalBuffer: any[] = [];
+    private readonly BATCH_SIZE = 50;
+    private readonly FLUSH_INTERVAL = 5000; // 5 secondes
 
     constructor() {
         this.db = new PostgresDatabase();
-        this.initTable();
+        // Démarrer le vidage automatique du buffer
+        setInterval(() => this.flushSignals(), this.FLUSH_INTERVAL);
     }
 
-    private async initTable() {
-        const createTableQuery = `
-            CREATE TABLE IF NOT EXISTS public.user_signals (
-                signal_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-                user_id UUID NOT NULL,
-                item_id UUID NOT NULL,
-                item_type VARCHAR(20) NOT NULL,
-                action_type VARCHAR(50) NOT NULL,
-                metadata JSONB DEFAULT '{}',
-                weight FLOAT DEFAULT 1.0,
-                created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-            );
-        `;
-        try {
-            await this.db.query(createTableQuery);
-        } catch (error) {
-            console.error("[RecsRepo] Failed to init table:", error);
+    // ==========================================
+    // 1. GESTION DES SIGNAUX (USER BEHAVIOR)
+    // ==========================================
+
+    async saveSignal(signal: CreateSignalDTO): Promise<void> {
+        // Validation de sécurité : Si pas d'ID, on ignore pour éviter de faire planter le buffer
+        if (!signal.item_id) {
+            console.warn("[Recs] Ignored signal: missing item_id", signal);
+            return;
+        }
+
+        let weight = signal.weight;
+        if (!weight) {
+            const weights: Record<string, number> = {
+                'VIEW': 0.1, 'CLICK': 1.0, 'LIKE': 2.0,
+                'COMMENT': 3.0, 'SHARE': 5.0, 'APPLY': 15.0,
+                'CONNECT': 5.0, 'DISMISS': -10.0
+            };
+            weight = weights[signal.action_type] || 1.0;
+        }
+
+        // Normalisation explicite
+        this.signalBuffer.push({
+            user_id: signal.user_id,
+            item_id: signal.item_id,
+            item_type: signal.item_type,
+            action_type: signal.action_type,
+            metadata: JSON.stringify(signal.metadata || {}),
+            weight: weight,
+            created_at: new Date()
+        });
+
+        if (this.signalBuffer.length >= this.BATCH_SIZE) {
+            await this.flushSignals();
         }
     }
 
+    private async flushSignals() {
+        if (this.signalBuffer.length === 0) return;
+
+        const signalsToSave = [...this.signalBuffer];
+        this.signalBuffer = []; 
+
+        const values = signalsToSave.map((_, i) =>
+            `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`
+        ).join(',');
+
+        const flatParams = signalsToSave.flatMap(s => [
+            s.user_id, s.item_id, s.item_type, s.action_type, s.metadata, s.weight
+        ]);
+
+        const query = `
+            INSERT INTO public.user_signals 
+            (user_id, item_id, item_type, action_type, metadata, weight)
+            VALUES ${values}
+        `;
+
+        try {
+            await this.db.query(query, flatParams);
+        } catch (e) {
+            console.error("[Recs] Database error during flush:", e);
+        }
+    }
+
+    // ==========================================
+    // 2. MOTEUR DE RECOMMANDATION (SCORING)
+    // ==========================================
+
     /**
-     * Advanced Profile Recommendation Algorithm
-     * Combines multiple signals for intelligent suggestions
+     * Recommandation de profils (Mix Réseau, Tendance, et Sérendipité)
      */
     async getProfileRecommendations(userId: string, limit: number = 10): Promise<any[]> {
         const query = `
-            WITH mutual_follows AS (
-                -- People followed by people you follow (Friends of Friends)
-                SELECT 
-                    f2.following_id as suggested_profile_id,
-                    COUNT(*) * 10 as score,
-                    'mutual_connections' as reason
-                FROM follows f1
-                JOIN follows f2 ON f1.following_id = f2.follower_id
-                WHERE f1.follower_id = $1 
-                    AND f2.following_id != $1
-                    AND f2.following_id NOT IN (
-                        SELECT following_id FROM follows WHERE follower_id = $1
-                    )
-                GROUP BY f2.following_id
-            ),
-            common_interests AS (
-                -- Same company, school, or skills
-                SELECT 
-                    p.user_id as suggested_profile_id,
-                    (
-                        CASE WHEN EXISTS(
-                            SELECT 1 FROM experiences e1 
-                            JOIN experiences e2 ON e1.company = e2.company
-                            WHERE e1.profile_id = $1 AND e2.profile_id = p.user_id
-                        ) THEN 7 ELSE 0 END
-                        +
-                        CASE WHEN EXISTS(
-                            SELECT 1 FROM educations ed1
-                            JOIN educations ed2 ON ed1.school_name = ed2.school_name
-                            WHERE ed1.profile_id = $1 AND ed2.profile_id = p.user_id
-                        ) THEN 7 ELSE 0 END
-                        +
-                        (SELECT COUNT(*) * 2 FROM profile_skills ps1
-                         JOIN profile_skills ps2 ON ps1.skill_id = ps2.skill_id
-                         WHERE ps1.profile_id = $1 AND ps2.profile_id = p.user_id)
-                    ) as score,
-                    'common_interests' as reason
-                FROM profiles p
-                WHERE p.user_id != $1
-                    AND p.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $1)
-            ),
-            similar_behavior AS (
-                -- People who liked the same posts as you
-                SELECT 
-                    l2.profile_id as suggested_profile_id,
-                    COUNT(*) * 5 as score,
-                    'similar_behavior' as reason
-                FROM likes l1
-                JOIN likes l2 ON l1.post_id = l2.post_id
-                WHERE l1.profile_id = $1
-                    AND l2.profile_id != $1
-                    AND l2.profile_id NOT IN (
-                        SELECT following_id FROM follows WHERE follower_id = $1
-                    )
-                GROUP BY l2.profile_id
-            ),
-            geographic_proximity AS (
-                -- Same location
-                SELECT 
-                    p.user_id as suggested_profile_id,
-                    3 as score,
-                    'same_location' as reason
-                FROM profiles p
-                JOIN profiles me ON me.user_id = $1
-                WHERE p.location_name = me.location_name
-                    AND p.location_name IS NOT NULL
-                    AND p.user_id != $1
-                    AND p.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $1)
-            ),
-            all_suggestions AS (
-                SELECT * FROM mutual_follows
+            WITH candidates AS (
+                -- 1. Réseau (Utilise la Vue Matérialisée)
+                SELECT suggested_id as user_id, mutual_count * 5 as score, 'network' as reason
+                FROM mat_view_mutual_follows
+                WHERE user_id = $1
+                
                 UNION ALL
-                SELECT * FROM common_interests WHERE score > 0
+                
+                -- 2. Créateurs "Trending" (Derniers 7 jours)
+                SELECT l.profile_id as user_id, COUNT(*) * 0.5 as score, 'trending_creator' as reason
+                FROM likes l
+                WHERE l.created_at > NOW() - INTERVAL '7 days'
+                AND l.profile_id != $1
+                GROUP BY l.profile_id
+                
                 UNION ALL
-                SELECT * FROM similar_behavior
-                UNION ALL
-                SELECT * FROM geographic_proximity
-            ),
-            aggregated AS (
-                SELECT 
-                    suggested_profile_id,
-                    SUM(score) as total_score,
-                    array_agg(DISTINCT reason) as reasons
-                FROM all_suggestions
-                GROUP BY suggested_profile_id
-                ORDER BY total_score DESC
-                LIMIT $2
+                
+                -- 3. "Wildcard" (Sérendipité)
+                (SELECT user_id, (RANDOM() * 5) as score, 'discovery' as reason
+                FROM profiles
+                WHERE user_id != $1
+                ORDER BY RANDOM()
+                LIMIT 10)
             )
             SELECT 
-                p.user_id as id,
-                p.user_id,
+                p.user_id as id, -- Frontend FIX
                 u.full_name,
-                p.bio as headline,
                 p.avatar_url,
-                p.location_name as location,
-                a.total_score,
-                a.reasons
-            FROM aggregated a
-            JOIN profiles p ON p.user_id = a.suggested_profile_id
+                p.bio,
+                COALESCE(SUM(c.score), 0) as total_score,
+                array_agg(DISTINCT c.reason) as reasons
+            FROM candidates c
+            JOIN profiles p ON p.user_id = c.user_id
             JOIN users u ON u.id = p.user_id
-            ORDER BY a.total_score DESC
+            WHERE p.user_id NOT IN (
+                SELECT following_id FROM follows WHERE follower_id = $1
+            )
+            AND p.user_id != $1 
+            GROUP BY p.user_id, u.full_name, p.avatar_url, p.bio
+            ORDER BY total_score DESC
+            LIMIT $2;
         `;
 
         return this.db.query(query, [userId, limit]);
     }
 
-
-    async saveSignal(signal: CreateSignalDTO): Promise<void> {
+    /**
+     * Recommandation de Jobs (Full Text Search + Signaux)
+     */
+    async getJobRecommendations(userId: string, limit: number = 10): Promise<any[]> {
         const query = `
-            INSERT INTO public.user_signals 
-            (user_id, item_id, item_type, action_type, metadata, weight)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            WITH user_context AS (
+                SELECT 
+                    p.location_name,
+                    string_agg(s.name, ' ') as skills_text
+                FROM profiles p
+                LEFT JOIN profile_skills ps ON ps.profile_id = p.user_id
+                LEFT JOIN skills s ON s.id = ps.skill_id
+                WHERE p.user_id = $1
+                GROUP BY p.location_name
+            )
+            SELECT 
+                j.id,
+                j.title,
+                c.name as company_name,
+                (
+                    -- Pertinence sémantique
+                    ts_rank(j.search_vector, to_tsquery('english', replace(COALESCE(uc.skills_text, ''), ' ', ' | '))) * 10
+                    +
+                    -- Localisation
+                    (CASE WHEN j.location = uc.location_name THEN 20 ELSE 0 END)
+                    +
+                    -- Historique utilisateur
+                    COALESCE((
+                        SELECT SUM(weight) 
+                        FROM user_signals us
+                        WHERE us.user_id = $1 AND us.item_type = 'JOB' 
+                        AND (us.metadata->>'category')::text = j.category
+                    ), 0) * 0.5
+                ) as match_score,
+                ts_headline('english', j.description, to_tsquery('english', replace(COALESCE(uc.skills_text, ''), ' ', ' | '))) as highlight
+            FROM jobs j
+            CROSS JOIN user_context uc
+            JOIN companies c ON c.id = j.company_id
+            WHERE j.status = 'published'
+            AND NOT EXISTS (
+                SELECT 1 FROM user_signals us 
+                WHERE us.user_id = $1 AND us.item_id = j.id AND us.action_type = 'APPLY'
+            )
+            ORDER BY match_score DESC
+            LIMIT $2;
         `;
 
-        let weight = signal.weight || 1.0;
+        return this.db.query(query, [userId, limit]);
+    }
 
-        // Auto-weighting logic if not provided
-        if (!signal.weight) {
-            switch (signal.action_type) {
-                case 'VIEW': weight = 0.1; break;
-                case 'CLICK': weight = 1.0; break;
-                case 'LIKE': weight = 2.0; break;
-                case 'COMMENT': weight = 3.0; break;
-                case 'SHARE': weight = 4.0; break;
-                case 'APPLY': weight = 10.0; break;
-                case 'CONNECT': weight = 5.0; break;
-                case 'DISMISS': weight = -5.0; break; // Negative feedback
-            }
-        }
+    // ==========================================
+    // 3. NOUVEAUX SCORES D'AFFINITÉ (EXPÉRIENCES & POSTS)
+    // ==========================================
 
-        await this.db.query(query, [
-            signal.user_id,
-            signal.item_id,
-            signal.item_type,
-            signal.action_type,
-            signal.metadata || {},
-            weight
-        ]);
+    /**
+     * Calcule l'affinité basée sur les entreprises communes.
+     * Utile pour créer un bloc "Anciens collègues potentiels".
+     */
+    async getExperienceMatching(userId: string, limit: number = 5): Promise<any[]> {
+        const query = `
+            SELECT 
+                p.user_id as id,
+                u.full_name,
+                e2.company_name,
+                COUNT(*) OVER(PARTITION BY e2.company_name) as mutual_colleagues
+            FROM experiences e1
+            JOIN experiences e2 ON e1.company_name = e2.company_name 
+            JOIN profiles p ON p.user_id = e2.profile_id
+            JOIN users u ON u.id = p.user_id
+            WHERE e1.profile_id = $1 
+            AND e2.profile_id != $1
+            AND p.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $1)
+            ORDER BY mutual_colleagues DESC, e2.end_date DESC NULLS FIRST
+            LIMIT $2;
+        `;
+        return this.db.query(query, [userId, limit]);
+    }
+
+    /**
+     * Calcule quels créateurs intéressent le plus l'utilisateur
+     * basé sur ses likes et commentaires sur les posts.
+     */
+    async getInterestBasedProfiles(userId: string, limit: number = 5): Promise<any[]> {
+        const query = `
+            SELECT 
+                target_p.user_id as id,
+                u.full_name,
+                SUM(us.weight) as interaction_score
+            FROM user_signals us
+            JOIN posts po ON po.id = us.item_id
+            JOIN profiles target_p ON target_p.user_id = po.author_id
+            JOIN users u ON u.id = target_p.user_id
+            WHERE us.user_id = $1 
+            AND us.item_type = 'POST'
+            AND us.action_type IN ('LIKE', 'COMMENT', 'SHARE')
+            AND target_p.user_id != $1
+            AND target_p.user_id NOT IN (SELECT following_id FROM follows WHERE follower_id = $1)
+            GROUP BY target_p.user_id, u.full_name
+            ORDER BY interaction_score DESC
+            LIMIT $2;
+        `;
+        return this.db.query(query, [userId, limit]);
     }
 }

@@ -22,15 +22,15 @@ export class ProfilesServices {
             // Verifer si l'utilisateur existe
             const user = await this.authRepository.findById(userId);
             if (!user) {
-                this.logger.instance.warn(`[ProfilesServices] User with ID ${userId} not found`);
-                throw new ConflictException("User not found");
+                this.logger.instance.info(`[ProfilesServices] User with ID ${userId} not found`);
+                return null;
             }
             // Récupérer les données de profil
 
             const profile = await this.profilesRepository.getProfileByUserId(userId);
             if (!profile) {
-                this.logger.instance.warn(`[ProfilesServices] Profile for User ID ${userId} not found`);
-                throw new ConflictException("Profile not found");
+                this.logger.instance.info(`[ProfilesServices] Profile for User ID ${userId} not found`);
+                return null;
             }
             // Combiner les données de l'utilisateur et du profil
             return {
@@ -61,6 +61,25 @@ export class ProfilesServices {
         } catch (error) {
             this.logger.instance.error(`[ProfilesServices] Error updating profile for User ID ${profileData.user_id}`, error);
             throw new BadRequestError("Failed to update profile");
+        }
+    }
+
+    async searchProfilesService(query: string, limit: number = 10): Promise<User[]> {
+        try {
+            if (!query || query.trim().length === 0) return [];
+            return await this.profilesRepository.searchProfiles(query, limit);
+        } catch (error) {
+            this.logger.instance.error("[ProfilesServices] Error searching profiles", error);
+            throw new BadRequestError("Failed to search profiles");
+        }
+    }
+
+    async getRecommendedProfiles(userId: string): Promise<any[]> {
+        try {
+            return await this.profilesRepository.getRecommendedProfiles(userId);
+        } catch (error) {
+            this.logger.instance.error(`[ProfilesServices] Error fetching recommendations for ${userId}`, error);
+            return [];
         }
     }
 }

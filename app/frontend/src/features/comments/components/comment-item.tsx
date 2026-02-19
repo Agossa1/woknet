@@ -6,6 +6,8 @@ import { Comment } from '../services/comments-types';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { toggleCommentLikeThunk, createCommentThunk, fetchRepliesThunk } from '../services/comments-thunks';
 import { selectProfileUser } from '@/src/features/profiles/services/profile-selectors';
+import { useMentions } from '@/src/hooks/useMentions';
+import { MentionDropdown } from '@/src/components/ui/MentionDropdown';
 
 interface CommentItemProps {
     comment: Comment;
@@ -36,6 +38,14 @@ export const CommentItem = ({ comment, isReply = false }: CommentItemProps) => {
 
     const replies = useAppSelector((state) => state.comments.repliesByComment[comment.id] || []);
     const isLoadingReplies = useAppSelector((state) => state.comments.loading[comment.id]);
+
+    const {
+        mentionQuery,
+        dropdownRect,
+        handleTextChange,
+        insertMention,
+        textareaRef
+    } = useMentions();
 
     const handleLike = () => {
         if (!profileUser?.user_id) return;
@@ -152,14 +162,33 @@ export const CommentItem = ({ comment, isReply = false }: CommentItemProps) => {
                                 className="w-6 h-6 rounded-full border border-gray-200 dark:border-gray-700 mt-1"
                             />
                             <form onSubmit={handleReplySubmit} className="flex-1 relative">
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    value={replyText}
-                                    onChange={(e) => setReplyText(e.target.value)}
-                                    placeholder={`Répondre à ${comment.full_name}...`}
-                                    className="w-full pl-3 pr-10 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm"
-                                />
+                                <div className="space-y-1">
+                                    <textarea
+                                        ref={textareaRef}
+                                        autoFocus
+                                        rows={1}
+                                        value={replyText}
+                                        onChange={(e) => {
+                                            const newText = e.target.value;
+                                            setReplyText(newText);
+                                            handleTextChange(newText, e.target.selectionStart || 0);
+                                        }}
+                                        onKeyUp={(e: any) => handleTextChange(replyText, e.target.selectionStart || 0)}
+                                        placeholder={`Répondre à ${comment.full_name}...`}
+                                        className="w-full pl-3 pr-10 py-1.5 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl text-[12px] focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all shadow-sm resize-none overflow-hidden h-auto min-h-[32px]"
+                                    />
+                                    {mentionQuery !== null && (
+                                        <MentionDropdown
+                                            query={mentionQuery}
+                                            anchorRect={dropdownRect}
+                                            onSelect={(user: any) => {
+                                                const newText = insertMention(user.username, replyText, textareaRef.current?.selectionStart || 0);
+                                                setReplyText(newText);
+                                                textareaRef.current?.focus();
+                                            }}
+                                        />
+                                    )}
+                                </div>
                                 <button
                                     type="submit"
                                     disabled={!replyText.trim()}

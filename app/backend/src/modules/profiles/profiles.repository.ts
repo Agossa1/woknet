@@ -11,7 +11,7 @@ export class ProfilesRepository {
         private readonly logger: Logger,
     ) { }
 
-    async getProfileByUserId(userId: ProfileData): Promise<User | null> {
+    async getProfileByUserId(userId: string): Promise<User | null> {
         try {
             const sql = `
                 SELECT 
@@ -118,6 +118,95 @@ export class ProfilesRepository {
         const sql = `UPDATE profiles SET followers_count = GREATEST(0, followers_count - 1) WHERE user_id = $1`;
         await this.db.query(sql, [userId]);
     }
+
+    async searchProfiles(query: string, limit: number = 10): Promise<User[]> {
+        try {
+            const sql = `
+                SELECT 
+                    p.user_id, 
+                    p.username, 
+                    p.display_name, 
+                    p.avatar_url,
+                    u.full_name,
+                    u.headline
+                FROM profiles p
+                JOIN users u ON p.user_id = u.id
+                WHERE 
+                    p.username ILIKE $1 OR 
+                    p.display_name ILIKE $1 OR 
+                    u.full_name ILIKE $1
+                LIMIT $2
+            `;
+            return await this.db.query<User>(sql, [`%${query}%`, limit]);
+        } catch (error) {
+            this.logger.instance.error("Error searching profiles", error);
+            throw error;
+        }
+    }
+
+    async getRecommendedProfiles(userId: string, limit: number = 5): Promise<User[]> {
+        try {
+            const sql = `
+                SELECT 
+                    p.user_id,
+                    p.username,
+                    p.display_name,
+                    p.avatar_url,
+                    u.full_name,
+                    u.headline,
+                    (
+                        COALESCE(skill_match.count, 0) * 5 +
+                        COALESCE(exp_match.count, 0) * 10 +
+                        COALESCE(edu_match.count, 0) * 15 +
+                        COALESCE(proj_match.count, 0) * 5
+                    ) as score
+                FROM profiles p
+                JOIN users u ON p.user_id = u.id
+                -- Skill Match
+                LEFT JOIN (
+                    SELECT t.user_id, COUNT(*) as count
+                    FROM profiles s, profiles t, unnest(s.skills) s_skill, unnest(t.skills) t_skill
+                    WHERE s.user_id = $1 AND t.user_id != $1 AND s_skill = t_skill
+                    GROUP BY t.user_id
+                ) skill_match ON p.user_id = skill_match.user_id
+                -- Experience Match (Même entreprise)
+                LEFT JOIN (
+                    SELECT t.profile_id, COUNT(DISTINCT t.company_name) as count
+                    FROM experiences s
+                    JOIN experiences t ON s.company_name = t.company_name
+                    WHERE s.profile_id = $1 AND t.profile_id != $1
+                    GROUP BY t.profile_id
+                ) exp_match ON p.user_id = exp_match.profile_id
+                -- Education Match (Même école)
+                LEFT JOIN (
+                    SELECT t.profile_id, COUNT(DISTINCT t.school_name) as count
+                    FROM educations s
+                    JOIN educations t ON s.school_name = t.school_name
+                    WHERE s.profile_id = $1 AND t.profile_id != $1
+                    GROUP BY t.profile_id
+                ) edu_match ON p.user_id = edu_match.profile_id
+                -- Project Tags Match (Intérêts communs)
+                LEFT JOIN (
+                    SELECT t.profile_id, COUNT(*) as count
+                    FROM projects s, projects t, unnest(s.tags) s_tag, unnest(t.tags) t_tag
+                    WHERE s.profile_id = $1 AND t.profile_id != $1 AND s_tag = t_tag
+                    GROUP BY t.profile_id
+                ) proj_match ON p.user_id = proj_match.profile_id
+                WHERE p.user_id != $1
+                AND NOT EXISTS (SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = p.user_id)
+                AND (
+                    COALESCE(skill_match.count, 0) > 0 OR 
+                    COALESCE(exp_match.count, 0) > 0 OR 
+                    COALESCE(edu_match.count, 0) > 0 OR
+                    COALESCE(proj_match.count, 0) > 0
+                )
+                ORDER BY score DESC
+                LIMIT $2
+            `;
+            return await this.db.query<User>(sql, [userId, limit]);
+        } catch (error) {
+            this.logger.instance.error("Error fetching recommended profiles", error);
+            return [];
+        }
+    }
 }
-
-

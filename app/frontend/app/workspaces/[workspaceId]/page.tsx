@@ -7,7 +7,7 @@ import { getProjectsThunk, createProjectThunk, getMyWorkspacesThunk } from "@/sr
 import { selectWorkspaceProjects, selectWorkspacesLoading, selectWorkspaces } from "@/src/features/workspaces/services/workspaces-selectors";
 import { Workspace, WPProject } from "@/src/features/workspaces/services/workspaces-types";
 import Link from "next/link";
-import { Plus, Layout, List, ChevronRight, ArrowLeft, Settings, Users, PieChart } from "lucide-react";
+import { Plus, Layout, ChevronRight, ArrowLeft, Settings, Users, Shield } from "lucide-react";
 
 export default function WorkspaceDetailPage() {
     const { workspaceId } = useParams();
@@ -30,7 +30,7 @@ export default function WorkspaceDetailPage() {
                 dispatch(getMyWorkspacesThunk());
             }
         }
-    }, [workspaceId, dispatch, workspaces.length]);
+    }, [workspaceId, dispatch, workspaces?.length]);
 
     const handleCreate = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -51,158 +51,213 @@ export default function WorkspaceDetailPage() {
         setKeyPrefix("");
     };
 
+    const iconStroke = 1.25;
+
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8">
-            <Link href="/workspaces" className="inline-flex items-center gap-2 text-gray-500 hover:text-indigo-600 mb-6 transition-colors group">
-                <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-                Retour aux workspaces
-            </Link>
+        <div className="min-h-screen bg-[#F4F2EE] dark:bg-black font-sans antialiased text-neutral-800 pb-20">
+            <div className="max-w-5xl mx-auto w-full px-6 py-10">
 
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-10">
-                <div>
-                    <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white tracking-tight">
-                        {workspace?.name || "Workspace"}
-                    </h1>
-                    <p className="text-gray-600 dark:text-gray-400 mt-2 text-lg">
-                        {workspace?.description || "Visualisez et gérez les projets de cet espace."}
-                    </p>
-                </div>
-                <div className="flex gap-2">
-                    <button className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
-                        <Users size={20} />
-                    </button>
-                    <button className="p-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all">
-                        <Settings size={20} />
-                    </button>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* Sidebar Stats */}
-                <div className="md:col-span-1 space-y-4">
-                    <div className="bg-indigo-600 rounded-2xl p-6 text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-                        <div className="flex items-center gap-3 mb-4">
-                            < PieChart size={32} />
-                            <span className="font-bold text-lg">Aperçu</span>
+                {/* Header bar */}
+                <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 -mx-6 px-6 py-4 mb-8 -mt-10 sticky top-0 z-50 shadow-sm">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                            <Link
+                                href="/workspaces"
+                                className="flex items-center gap-2 px-3 py-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-all text-xs font-bold uppercase tracking-tight group"
+                            >
+                                <ArrowLeft size={16} strokeWidth={iconStroke} className="group-hover:-translate-x-1 transition-transform" />
+                                Retour aux espaces
+                            </Link>
+                            <div className="h-4 w-px bg-neutral-100 dark:bg-neutral-800" />
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-md bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center border border-neutral-100 dark:border-neutral-700">
+                                    <Layout size={16} strokeWidth={iconStroke} className="text-neutral-400" />
+                                </div>
+                                <span className="font-bold text-sm truncate max-w-[200px] text-neutral-900 dark:text-white">
+                                    {workspace?.name || "Workspace"}
+                                </span>
+                            </div>
                         </div>
-                        <div className="space-y-3">
-                            <div className="flex justify-between text-sm">
-                                <span className="text-indigo-100">Projets</span>
-                                <span className="font-bold">{projects.length}</span>
-                            </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-indigo-100">Tasks</span>
-                                <span className="font-bold">--</span>
-                            </div>
+                        <div className="flex items-center gap-2">
+                            <button className="p-2 text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-full transition-colors">
+                                <Users size={18} strokeWidth={iconStroke} />
+                            </button>
+                            <button className="p-2 text-neutral-500 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded-full transition-colors">
+                                <Settings size={18} strokeWidth={iconStroke} />
+                            </button>
+                            <button
+                                onClick={() => setIsModalOpen(true)}
+                                className="flex items-center gap-2 px-5 py-2 bg-[#0A66C2] hover:bg-[#004182] text-white text-xs font-semibold rounded shadow-sm transition-colors"
+                            >
+                                <Plus size={16} strokeWidth={2.5} />
+                                Nouveau projet
+                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="md:col-span-3">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-                            <Layout size={20} className="text-indigo-600" />
-                            Projets Actifs
-                        </h2>
-                        <button
-                            onClick={() => setIsModalOpen(true)}
-                            className="flex items-center gap-2 text-sm font-semibold bg-gray-900 dark:bg-white text-white dark:text-gray-900 px-4 py-2 rounded-xl hover:opacity-90 transition-all"
-                        >
-                            <Plus size={18} />
-                            Nouveau Projet
-                        </button>
-                    </div>
+                <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 items-start">
 
-                    {loading && projects.length === 0 ? (
-                        <div className="grid grid-cols-1 gap-4">
-                            {[1, 2].map(i => <div key={i} className="h-24 bg-gray-100 dark:bg-gray-800 animate-pulse rounded-2xl" />)}
+                    {/* Sidebar */}
+                    <aside className="space-y-4">
+                        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 shadow-sm">
+                            <h3 className="text-[13px] font-semibold text-neutral-900 dark:text-white mb-3 font-inter">
+                                Statistiques
+                            </h3>
+                            <p className="text-2xl font-bold text-neutral-900 dark:text-white">{projects.length}</p>
+                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 font-medium mt-0.5">
+                                Projets actifs
+                            </p>
                         </div>
-                    ) : projects.length === 0 ? (
-                        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-10 text-center border-2 border-dashed border-gray-200 dark:border-gray-700">
-                            <p className="text-gray-500 dark:text-gray-400">Aucun projet dans cet espace.</p>
+
+                        <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Shield size={14} strokeWidth={iconStroke} className="text-neutral-400" />
+                                <span className="text-[12px] font-semibold text-neutral-900 dark:text-white">Sécurité</span>
+                            </div>
+                            <p className="text-[11px] text-neutral-500 dark:text-neutral-400 leading-relaxed">
+                                Accès restreint aux membres vérifiés. Modifications auditées.
+                            </p>
                         </div>
-                    ) : (
-                        <div className="grid grid-cols-1 gap-4">
-                            {projects.map((project: WPProject) => (
-                                <Link
-                                    key={project.id}
-                                    href={`/workspaces/projects/${project.id}`}
-                                    className="group flex items-center justify-between p-5 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl hover:shadow-lg transition-all hover:border-indigo-200 dark:hover:border-indigo-900"
+                    </aside>
+
+                    {/* Projets */}
+                    <div className="space-y-4">
+                        <div className="border-b border-neutral-300/60 dark:border-neutral-800 pb-4">
+                            <h2 className="text-lg font-semibold text-neutral-900 dark:text-white tracking-tight font-inter">
+                                Projets
+                            </h2>
+                            <p className="text-sm text-neutral-500 dark:text-neutral-400 mt-0.5">
+                                Gérez vos flux de travail et déploiements
+                            </p>
+                        </div>
+
+                        {loading && projects.length === 0 ? (
+                            <div className="space-y-4">
+                                {[1, 2, 3].map(i => (
+                                    <div key={i} className="h-20 bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 animate-pulse" />
+                                ))}
+                            </div>
+                        ) : projects.length === 0 ? (
+                            <div className="bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-16 text-center shadow-sm">
+                                <div className="w-14 h-14 bg-neutral-50 dark:bg-neutral-800 rounded-full flex items-center justify-center mx-auto mb-5 border border-neutral-100 dark:border-neutral-700">
+                                    <Layout size={28} strokeWidth={iconStroke} className="text-neutral-300" />
+                                </div>
+                                <h3 className="text-base font-semibold text-neutral-900 dark:text-white mb-2 font-inter">
+                                    Aucun projet
+                                </h3>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mb-6 max-w-[260px] mx-auto font-medium">
+                                    Créez votre premier projet pour démarrer.
+                                </p>
+                                <button
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="text-[#0A66C2] font-semibold hover:underline text-sm"
                                 >
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-gray-50 dark:bg-gray-900 rounded-xl flex items-center justify-center font-bold text-indigo-600 dark:text-indigo-400 text-lg border border-gray-100 dark:border-gray-700">
-                                            {project.key_prefix}
+                                    + Créer un projet
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 gap-4">
+                                {projects.map((project: WPProject) => (
+                                    <Link
+                                        key={project.id}
+                                        href={`/workspaces/projects/${project.id}`}
+                                        className="group bg-white dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-lg p-5 flex items-center justify-between shadow-sm hover:border-[#0A66C2] transition-colors duration-200"
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-lg bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center border border-neutral-100 dark:border-neutral-700 font-bold text-neutral-700 dark:text-neutral-300 text-sm group-hover:text-[#0A66C2] transition-colors">
+                                                {project.key_prefix}
+                                            </div>
+                                            <div className="min-w-0">
+                                                <h3 className="font-semibold text-neutral-900 dark:text-white text-[15px] truncate group-hover:text-[#0A66C2] transition-colors">
+                                                    {project.name}
+                                                </h3>
+                                                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 truncate max-w-[320px] mt-0.5">
+                                                    {project.description || "Aucune description"}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <h3 className="font-bold text-gray-900 dark:text-white group-hover:text-indigo-600 transition-colors">
-                                                {project.name}
-                                            </h3>
-                                            <p className="text-sm text-gray-500 line-clamp-1">{project.description || "Aucune description"}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="hidden sm:flex -space-x-2">
-                                            {[1, 2].map(i => (
-                                                <div key={i} className="w-8 h-8 rounded-full border-2 border-white dark:border-gray-800 bg-gray-200 dark:bg-gray-700" />
-                                            ))}
-                                        </div>
-                                        <ChevronRight size={20} className="text-gray-400 group-hover:text-indigo-600 group-hover:translate-x-1 transition-all" />
-                                    </div>
-                                </Link>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Modal de création de projet */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in transition-all">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md p-8 shadow-2xl">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 text-center">Nouveau Projet</h2>
-                        <form onSubmit={handleCreate} className="space-y-5">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Nom du projet</label>
-                                <input
-                                    type="text"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    placeholder="ex: Design System, API Integration..."
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                                    required
-                                />
+                                        <ChevronRight size={18} strokeWidth={iconStroke} className="text-neutral-400 group-hover:text-[#0A66C2] shrink-0 transition-colors" />
+                                    </Link>
+                                ))}
                             </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Clé du projet (Préfixe)</label>
-                                <input
-                                    type="text"
-                                    value={keyPrefix}
-                                    onChange={(e) => setKeyPrefix(e.target.value.toUpperCase())}
-                                    placeholder="ex: DS, API, WEB..."
-                                    maxLength={10}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none font-mono"
-                                    required
-                                />
-                                <p className="text-[10px] text-gray-500 mt-1 uppercase">Sera utilisé pour numéroter vos tâches (ex: {keyPrefix || 'PROJ'}-123)</p>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Description</label>
-                                <textarea
-                                    value={description}
-                                    onChange={(e) => setDescription(e.target.value)}
-                                    rows={2}
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                                />
-                            </div>
-                            <div className="flex gap-3 pt-4">
-                                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 px-4 py-3 rounded-xl font-semibold text-gray-600 hover:bg-gray-100 transition-all">Annuler</button>
-                                <button type="submit" className="flex-1 px-4 py-3 rounded-xl font-semibold text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg transition-all">Créer Projet</button>
-                            </div>
-                        </form>
+                        )}
                     </div>
                 </div>
-            )}
+
+                {/* Modal création projet */}
+                {isModalOpen && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                        <div className="bg-white dark:bg-neutral-900 w-full max-w-md p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-xl">
+                            <div className="mb-6">
+                                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white font-inter">
+                                    Nouveau projet
+                                </h2>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1">
+                                    Initialisez un nouveau flux de travail
+                                </p>
+                            </div>
+
+                            <form onSubmit={handleCreate} className="space-y-5">
+                                <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">
+                                        Nom *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={name}
+                                        onChange={(e) => setName(e.target.value)}
+                                        placeholder="Ex: API v2, Design System..."
+                                        className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] text-sm font-medium text-neutral-900 dark:text-white transition-all"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">
+                                        Préfixe *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={keyPrefix}
+                                        onChange={(e) => setKeyPrefix(e.target.value.toUpperCase())}
+                                        placeholder="Ex: DS, API..."
+                                        maxLength={10}
+                                        className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] text-sm font-mono font-medium text-neutral-900 dark:text-white uppercase transition-all"
+                                        required
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">
+                                        Description
+                                    </label>
+                                    <textarea
+                                        value={description}
+                                        onChange={(e) => setDescription(e.target.value)}
+                                        placeholder="Objectifs, contexte..."
+                                        rows={3}
+                                        className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] text-sm font-medium text-neutral-900 dark:text-white resize-none transition-all"
+                                    />
+                                </div>
+                                <div className="flex gap-3 pt-4">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsModalOpen(false)}
+                                        className="flex-1 px-4 py-2.5 text-sm font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded transition-colors"
+                                    >
+                                        Annuler
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="flex-1 px-4 py-2.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-sm font-semibold rounded shadow-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        Créer
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

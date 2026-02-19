@@ -1,6 +1,6 @@
 import { JobsRepository } from "./jobs.repository";
 import { JobsAIService } from "./jobs.ai.service";
-import { CreateJobDTO, UpdateJobDTO, Job, GenerateDescriptionDTO } from "./jobs.types";
+import { CreateJobDTO, UpdateJobDTO, Job, GenerateDescriptionDTO, GeneratedJobDescription } from "./jobs.types";
 import { NotFoundException, ForbiddenException } from "../../errors/custom-errors";
 import Logger from "../../infra/logger/winston";
 
@@ -64,11 +64,7 @@ export class JobsService {
         await this.repository.deleteJob(jobId);
     }
 
-    async generateJobDescription(dto: GenerateDescriptionDTO): Promise<{
-        description: string;
-        requirements: string;
-        suggested_salary_range?: { min: number; max: number; currency: string };
-    }> {
+    async generateJobDescription(dto: GenerateDescriptionDTO): Promise<GeneratedJobDescription> {
         return await this.aiService.generateDescription(dto);
     }
 }

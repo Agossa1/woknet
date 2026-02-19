@@ -11,6 +11,7 @@ import {
     toggleSavePostThunk,
     fetchSavedPostsThunk
 } from "./posts-thunks";
+import { fetchPowerFeedThunk } from "@/src/features/feeds/services/feed-thunks";
 import { RootState } from "@/src/store/store";
 
 const initialState: PostsState = {
@@ -85,7 +86,6 @@ const postsSlice = createSlice({
         },
     },
     extraReducers: (builder) => {
-        // Fetch Feed
         builder.addCase(fetchFeedThunk.pending, (state) => {
             state.loading = true;
         });
@@ -94,6 +94,72 @@ const postsSlice = createSlice({
             state.feed = action.payload;
         });
         builder.addCase(fetchFeedThunk.rejected, (state, action) => {
+            state.loading = false;
+            state.error = action.payload as string;
+        });
+
+        builder.addCase(fetchPowerFeedThunk.pending, (state) => {
+            state.loading = true;
+        });
+        builder.addCase(fetchPowerFeedThunk.fulfilled, (state, action: PayloadAction<any>) => {
+            state.loading = false;
+
+            const payload = action.payload as any;
+            const page = payload?.page ?? 1;
+            const rawItems = payload?.items ?? [];
+
+            // Si le backend renvoie une liste vide pour la page 1,
+            // on conserve le feed existant pour éviter l'effet "tout disparaît".
+            if ((page === 1 || !page) && (!rawItems || rawItems.length === 0)) {
+                return;
+            }
+
+            const items = (rawItems as any[]).filter((p: any) => {
+                if (!p || !p.content_type) return true;
+                if (page === 1) return true;
+                return p.content_type !== "RECOMMENDATION_PROFILES" && p.content_type !== "RECOMMENDATION_JOBS";
+            });
+
+            if (page && page > 1 && state.feed && state.feed.length > 0) {
+                const existingIds = new Set(
+                    state.feed.map((p: any) => p.id ?? p.item_id)
+                );
+
+                const newItems = (items as any[]).filter((p: any) => {
+                    const id = p.id ?? p.item_id;
+                    if (!id) return true;
+                    if (existingIds.has(id)) return false;
+                    existingIds.add(id);
+                    return true;
+                });
+
+                state.feed = [...state.feed, ...newItems];
+            } else {
+                const newItems = items as any[];
+                const existing = (state.feed || []).filter((p: any) => {
+                    if (!p || !p.content_type) return true;
+                    return p.content_type !== "RECOMMENDATION_PROFILES" && p.content_type !== "RECOMMENDATION_JOBS";
+                });
+
+                if (existing.length === 0) {
+                    state.feed = newItems;
+                    return;
+                }
+
+                const newIds = new Set(
+                    newItems.map((p: any) => p.id ?? p.item_id ?? p.unique_id)
+                );
+
+                const preservedExisting = existing.filter((p: any) => {
+                    const id = p.id ?? p.item_id ?? p.unique_id;
+                    if (!id) return false;
+                    return !newIds.has(id);
+                });
+
+                state.feed = [...preservedExisting, ...newItems];
+            }
+        });
+        builder.addCase(fetchPowerFeedThunk.rejected, (state, action) => {
             state.loading = false;
             state.error = action.payload as string;
         });

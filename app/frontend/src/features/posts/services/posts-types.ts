@@ -45,6 +45,9 @@ export interface Post {
     reactionType?: ReactionType;
     reactionTypes?: ReactionType[];
 
+    // Vues (surtout utile pour vidéos / images)
+    views_count?: number;
+
     // Share info
     share_id?: string;
     share_caption?: string;

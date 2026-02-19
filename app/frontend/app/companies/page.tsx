@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import { getMyCompaniesThunk, createCompanyThunk, deleteCompanyThunk } from '@/src/features/companies/services/companies-thunks';
 import { selectMyCompanies, selectCompaniesLoading, selectCompaniesError } from '@/src/features/companies/services/companies-selectors';
-import { Building2, Plus, Globe, ShieldCheck, Trash2, ArrowRight, LayoutGrid, List, Briefcase, Users, Megaphone, TrendingUp, Target, Lightbulb, Settings, FileText, ChevronDown, CreditCard } from 'lucide-react';
+import { Building2, Plus, Globe, ShieldCheck, Trash2, ArrowRight, ArrowLeft, LayoutGrid, List, Briefcase, Users, Megaphone, TrendingUp, Target, Lightbulb, Settings, FileText, ChevronDown, CreditCard, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CompaniesPage() {
@@ -27,7 +27,9 @@ export default function CompaniesPage() {
         description: '', // Acting as "Slogan"
         website_url: '',
         company_size: '',
-        company_type: ''
+        company_type: '',
+        logo_url: '',
+        banner_url: ''
     });
 
     // Industry Search State
@@ -96,8 +98,13 @@ export default function CompaniesPage() {
 
         const res = await dispatch(createCompanyThunk(payload));
         if (createCompanyThunk.fulfilled.match(res)) {
+            const createdCompany = res.payload;
             setCreationStep('none');
-            setFormData({ name: '', slug: '', description: '', website_url: '', company_size: '', company_type: '' });
+            setFormData({ name: '', slug: '', description: '', website_url: '', company_size: '', company_type: '', logo_url: '', banner_url: '' });
+            // Redirection vers la page de détail de l'entreprise
+            if (createdCompany?.slug) {
+                window.location.href = `/companies/${createdCompany.slug}`;
+            }
         }
     };
 
@@ -197,6 +204,86 @@ export default function CompaniesPage() {
                                         onChange={(e) => setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
                                         className="flex-1 bg-transparent px-4 py-2.5 outline-none font-medium text-sm"
                                     />
+                                </div>
+                            </div>
+
+                            {/* Logo Upload */}
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400">Logo de l'entreprise</label>
+                                <div className="flex items-center gap-4">
+                                    <div className="w-20 h-20 rounded bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 flex items-center justify-center overflow-hidden">
+                                        {formData.logo_url ? (
+                                            <img src={formData.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Building2 size={32} strokeWidth={iconStroke} className="text-neutral-300" />
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        setFormData({ ...formData, logo_url: reader.result as string });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="hidden"
+                                            id="logo-upload"
+                                        />
+                                        <label
+                                            htmlFor="logo-upload"
+                                            className="inline-block px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 cursor-pointer transition-colors"
+                                        >
+                                            Choisir une image
+                                        </label>
+                                        <p className="text-[10px] text-neutral-500 mt-2 font-medium">Format carré recommandé (500x500px minimum)</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Banner Upload */}
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400">Bannière de couverture</label>
+                                <div className="space-y-3">
+                                    <div className="w-full h-32 rounded bg-neutral-50 dark:bg-neutral-800 border border-neutral-200 dark:border-neutral-700 overflow-hidden">
+                                        {formData.banner_url ? (
+                                            <img src={formData.banner_url} alt="Bannière" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-neutral-300">
+                                                <ImageIcon size={32} strokeWidth={iconStroke} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    const reader = new FileReader();
+                                                    reader.onloadend = () => {
+                                                        setFormData({ ...formData, banner_url: reader.result as string });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="hidden"
+                                            id="banner-upload"
+                                        />
+                                        <label
+                                            htmlFor="banner-upload"
+                                            className="inline-block px-4 py-2 bg-white dark:bg-neutral-800 border border-neutral-300 dark:border-neutral-700 rounded text-xs font-semibold text-neutral-700 dark:text-neutral-200 hover:bg-neutral-50 dark:hover:bg-neutral-700 cursor-pointer transition-colors"
+                                        >
+                                            Choisir une image
+                                        </label>
+                                        <p className="text-[10px] text-neutral-500 mt-2 font-medium">Format panoramique recommandé (1584x396px minimum)</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -313,10 +400,17 @@ export default function CompaniesPage() {
                     <div className="lg:sticky lg:top-32 hidden lg:block">
                         <h3 className="text-xs font-semibold text-neutral-400 mb-4 tracking-tight">Rendu en temps réel</h3>
                         <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 shadow-xl overflow-hidden min-h-[300px]">
-                            <div className="h-32 bg-neutral-100 dark:bg-neutral-800 relative">
+                            <div className="h-32 bg-neutral-100 dark:bg-neutral-800 relative overflow-hidden">
+                                {formData.banner_url ? (
+                                    <img src={formData.banner_url} alt="Bannière" className="w-full h-full object-cover" />
+                                ) : null}
                                 <div className="absolute -bottom-10 left-8 w-24 h-24 bg-white dark:bg-neutral-900 p-1 rounded-md border border-neutral-200 dark:border-neutral-800 shadow-md">
-                                    <div className="w-full h-full bg-neutral-50 dark:bg-neutral-800 rounded flex items-center justify-center">
-                                        <Building2 size={32} strokeWidth={iconStroke} className="text-neutral-300" />
+                                    <div className="w-full h-full bg-neutral-50 dark:bg-neutral-800 rounded flex items-center justify-center overflow-hidden">
+                                        {formData.logo_url ? (
+                                            <img src={formData.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <Building2 size={32} strokeWidth={iconStroke} className="text-neutral-300" />
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -345,46 +439,19 @@ export default function CompaniesPage() {
     // Default View: Dashboard
     return (
         <div className="min-h-screen bg-[#F4F2EE] dark:bg-black p-6 md:p-10 font-sans antialiased text-neutral-800">
-            <div className={`max-w-7xl mx-auto ${companies.length > 0 ? 'grid grid-cols-1 lg:grid-cols-12 gap-10' : ''}`}>
-
-                {/* Left Column: Services Premium - ONLY if user has companies */}
-                {companies.length > 0 && (
-                    <div className="lg:col-span-3 space-y-6 order-2 lg:order-1">
-                        <div className="bg-white dark:bg-neutral-900 rounded-lg border border-neutral-200 dark:border-neutral-800 p-6 shadow-sm">
-                            <h2 className="text-[13px] font-semibold text-neutral-900 dark:text-white mb-5 font-inter">Services Premium</h2>
-                            <nav className="space-y-1">
-                                <QuickLink href="/jobs/create" icon={<Briefcase size={16} strokeWidth={iconStroke} />} title="Gestion recrutement" />
-                                <QuickLink href="/search?type=people" icon={<Target size={16} strokeWidth={iconStroke} />} title="Ciblage commercial" />
-                                <QuickLink href="/workspaces" icon={<Users size={16} strokeWidth={iconStroke} />} title="Canaux collaboratifs" />
-                                <QuickLink href="/ads" icon={<Megaphone size={16} strokeWidth={iconStroke} />} title="Promotion régie" />
-                                <QuickLink href="/learning" icon={<Lightbulb size={16} strokeWidth={iconStroke} />} title="Centre de formation" />
-                            </nav>
-                            <div className="mt-8 pt-5 border-t border-neutral-100 dark:border-neutral-800">
-                                <Link href="/settings/billing" className="text-[11px] font-semibold text-[#0A66C2] hover:underline flex items-center gap-2">
-                                    <CreditCard size={14} strokeWidth={iconStroke} />
-                                    Détails de facturation
-                                </Link>
-                            </div>
-                        </div>
-
-                        <div className="bg-[#1C1C1C] dark:bg-neutral-900 rounded-lg p-6 text-white shadow-lg border border-neutral-800">
-                            <div className="flex items-center gap-2 mb-4 text-[#FFB020]">
-                                <TrendingUp size={20} strokeWidth={2} />
-                                <span className="text-[10px] font-bold tracking-widest">PREMIUM</span>
-                            </div>
-                            <h3 className="font-semibold text-sm mb-2 font-inter">Analyse prédictive</h3>
-                            <p className="text-neutral-400 text-[11px] mb-6 leading-relaxed font-medium">Accédez aux données comportementales de votre audience pour ajuster vos campagnes.</p>
-                            <button className="w-full py-2 bg-white text-black rounded text-xs font-bold hover:bg-neutral-100 transition shadow-sm">
-                                Essai de 30 jours
-                            </button>
-                        </div>
-                    </div>
-                )}
+            <div className="max-w-5xl mx-auto w-full">
 
                 {/* Main Column */}
-                <div className={`${companies.length > 0 ? 'lg:col-span-9 order-1 lg:order-2' : 'max-w-5xl mx-auto w-full'} space-y-6`}>
+                <div className="space-y-6">
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-neutral-300/60 dark:border-neutral-800">
                         <div>
+                            <Link
+                                href="/feed"
+                                className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white mb-2"
+                            >
+                                <ArrowLeft size={14} />
+                                <span>Retour à l'accueil</span>
+                            </Link>
                             <h1 className="text-2xl font-semibold text-neutral-900 dark:text-white tracking-tight font-inter">Centre de gestion des entreprises</h1>
                             <p className="text-neutral-500 dark:text-neutral-400 text-sm mt-1 font-medium">Administrez vos pages, analysez les performances et recrutez.</p>
                         </div>

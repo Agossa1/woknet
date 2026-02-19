@@ -19,6 +19,12 @@ export interface Job {
     created_at: string;
     updated_at: string;
     deleted_at: string | null;
+
+    // Optional fields for recommendations and associations
+    company_name?: string;
+    company_logo?: string;
+    company_slug?: string;
+    recommendation_score?: number;
 }
 
 export interface CreateJobDTO {

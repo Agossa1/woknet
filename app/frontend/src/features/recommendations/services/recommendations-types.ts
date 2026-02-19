@@ -21,6 +21,8 @@ export interface RecommendationState {
     lastTracked: RecommendationSignal | null;
     profileSuggestions: ProfileSuggestion[];
     loadingSuggestions: boolean;
+    jobRecommendations: any[]; // Using any for now to keep it flexible
+    loadingJobs: boolean;
 }
 
 export interface ProfileSuggestion {

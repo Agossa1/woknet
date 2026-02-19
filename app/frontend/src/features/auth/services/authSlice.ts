@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "./authTypes";
-import { forgotPasswordThunk, initializeAuthThunk, loginThunk, logoutThunk, registerThunk, resendCodeOtpThunk, resetPasswordThunk, updatePasswordThunk, verifyAccountThunk, verifyOtpPasswordResetThunk, verifyResetTokenThunk, completeOnboardingThunk } from "./authThunks";
+import { forgotPasswordThunk, initializeAuthThunk, loginThunk, logoutThunk, registerThunk, resendCodeOtpThunk, resetPasswordThunk, updatePasswordThunk, verifyAccountThunk, verifyOtpPasswordResetThunk, verifyResetTokenThunk, completeOnboardingThunk, verify2FAThunk } from "./authThunks";
 
 
 // 1. Définition de l'état initial et du type de l'état
@@ -71,10 +71,16 @@ const authSlice = createSlice({
             .addCase(loginThunk.fulfilled, (state, action) => {
                 state.isLoading = false;
                 state.user = action.payload.user;
-                state.isAuthenticated = true;
-                state.isVerified = true;
-                state.error = null;
-                state.successMessage = "Connexion réussie !";
+                if ((action.payload.user as any).requires2FA) {
+                    state.isAuthenticated = false;
+                    state.isVerified = false;
+                    state.successMessage = "Veuillez entrer votre code 2FA";
+                } else {
+                    state.isAuthenticated = true;
+                    state.isVerified = true;
+                    state.error = null;
+                    state.successMessage = "Connexion réussie !";
+                }
             })
 
 
@@ -164,6 +170,22 @@ const authSlice = createSlice({
             .addCase(completeOnboardingThunk.rejected, (state, action: any) => {
                 state.isLoading = false;
                 state.error = action.payload || "Échec de la complétion du profil";
+            })
+            // =================== VERIFY 2FA ===================
+            .addCase(verify2FAThunk.pending, (state) => {
+                state.isLoading = true;
+                state.error = null;
+            })
+            .addCase(verify2FAThunk.fulfilled, (state, action) => {
+                state.isLoading = false;
+                state.user = action.payload.user;
+                state.isAuthenticated = true;
+                state.isVerified = true;
+                state.successMessage = "Connexion réussie !";
+            })
+            .addCase(verify2FAThunk.rejected, (state, action: any) => {
+                state.isLoading = false;
+                state.error = action.payload || "Échec de la vérification 2FA";
             })
     }
 })

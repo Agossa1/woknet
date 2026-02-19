@@ -216,10 +216,15 @@ export default function JobFormPage() {
             <div className="bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 sticky top-0 z-50">
                 <div className="max-w-[1128px] mx-auto px-6 h-14 flex items-center justify-between">
                     <div className="flex items-center gap-6">
-                        <button onClick={() => router.back()} className="text-neutral-500 hover:text-black dark:hover:text-white pb-0.5">
+                        <Link
+                            href="/jobs/create"
+                            className="text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-colors"
+                            title="Quitter"
+                        >
                             <X size={22} strokeWidth={iconStroke} />
-                        </button>
-                        <h1 className="text-base font-semibold text-neutral-800 dark:text-neutral-200 font-inter">Publication d'offre</h1>
+                        </Link>
+                        <div className="h-4 w-px bg-neutral-100 dark:bg-neutral-800" />
+                        <h1 className="text-sm font-bold text-neutral-900 dark:text-neutral-200 uppercase tracking-tight">Analyse de poste</h1>
                     </div>
 
                     <div className="flex items-center gap-4">

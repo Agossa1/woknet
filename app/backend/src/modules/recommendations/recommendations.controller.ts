@@ -26,9 +26,13 @@ export class RecommendationsController {
 
     getProfileSuggestions = async (req: SecureRequest, res: Response) => {
         const limit = parseInt(req.query.limit as string) || 10;
-
         const suggestions = await this.service.getProfileRecommendations(req.user!.id, limit);
+        return res.status(200).json(suggestions);
+    }
 
+    getJobSuggestions = async (req: SecureRequest, res: Response) => {
+        const limit = parseInt(req.query.limit as string) || 10;
+        const suggestions = await this.service.getJobRecommendations(req.user!.id, limit);
         return res.status(200).json(suggestions);
     }
 }

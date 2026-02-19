@@ -9,9 +9,16 @@ import { useEffect, useRef, useState } from "react";
 interface VideoPlayerProps {
     src: string;
     className?: string;
+    autoPlayOnMount?: boolean;
+    enableClickToPlay?: boolean;
 }
 
-export const VideoPlayer = ({ src, className }: VideoPlayerProps) => {
+export const VideoPlayer = ({
+    src,
+    className,
+    autoPlayOnMount = false,
+    enableClickToPlay = true,
+}: VideoPlayerProps) => {
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -92,6 +99,27 @@ export const VideoPlayer = ({ src, className }: VideoPlayerProps) => {
         }, 3000);
     };
 
+    // Auto-play when requested (e.g. in post detail)
+    useEffect(() => {
+        if (!autoPlayOnMount || !videoRef.current) return;
+
+        const video = videoRef.current;
+
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+            playPromise
+                .then(() => {
+                    setIsPlaying(true);
+                })
+                .catch(() => {
+                    // Autoplay blocked by browser, fail silently
+                    setIsPlaying(false);
+                });
+        } else {
+            setIsPlaying(true);
+        }
+    }, [autoPlayOnMount, src]);
+
     // Quality transformation (Simple logic for Cloudinary)
     const getTransformedUrl = (originalUrl: string, selectedQuality: string) => {
         if (!originalUrl.includes('cloudinary.com')) return originalUrl;
@@ -119,7 +147,7 @@ export const VideoPlayer = ({ src, className }: VideoPlayerProps) => {
                 className="w-full h-full cursor-pointer object-contain bg-black"
                 onTimeUpdate={handleProgress}
                 onLoadedMetadata={() => setDuration(videoRef.current?.duration || 0)}
-                onClick={togglePlay}
+                onClick={enableClickToPlay ? togglePlay : undefined}
                 onContextMenu={(e) => e.preventDefault()}
                 playsInline
                 disablePictureInPicture
@@ -225,7 +253,7 @@ export const VideoPlayer = ({ src, className }: VideoPlayerProps) => {
             </div>
 
             {/* Play Overlay (Big button when paused) */}
-            {!isPlaying && (
+            {!isPlaying && enableClickToPlay && (
                 <div
                     onClick={togglePlay}
                     className="absolute inset-0 flex items-center justify-center bg-black/20 group-hover:bg-black/40 transition-colors cursor-pointer"

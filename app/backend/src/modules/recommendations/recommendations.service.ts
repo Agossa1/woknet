@@ -30,4 +30,13 @@ export class RecommendationsService {
             return [];
         }
     }
+
+    async getJobRecommendations(userId: string, limit: number = 10): Promise<any[]> {
+        try {
+            return await this.repo.getJobRecommendations(userId, limit);
+        } catch (error) {
+            this.logger.instance.error(`[Recs] Failed to get job recommendations: ${error}`);
+            return [];
+        }
+    }
 }

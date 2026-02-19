@@ -28,8 +28,9 @@ export interface User {
     country?: string;
     job_title?: string;
     job_type?: string;
-    access_token?: string;
-    refresh_token?: string;
+    two_factor_enabled: boolean;
+    two_factor_secret?: string;
+    two_factor_recovery_codes?: string[];
     created_at: Date;
     updated_at: Date;
     deleted_at?: Date;

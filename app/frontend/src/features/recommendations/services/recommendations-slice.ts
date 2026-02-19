@@ -1,6 +1,6 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { RecommendationState } from './recommendations-types';
-import { trackSignalThunk, fetchProfileSuggestionsThunk } from './recommendations-thunks';
+import { trackSignalThunk, fetchProfileSuggestionsThunk, fetchJobRecommendationsThunk } from './recommendations-thunks';
 
 const initialState: RecommendationState = {
     loading: false,
@@ -8,6 +8,8 @@ const initialState: RecommendationState = {
     lastTracked: null,
     profileSuggestions: [],
     loadingSuggestions: false,
+    jobRecommendations: [],
+    loadingJobs: false,
 };
 
 const recommendationsSlice = createSlice({
@@ -45,6 +47,19 @@ const recommendationsSlice = createSlice({
             })
             .addCase(fetchProfileSuggestionsThunk.rejected, (state, action) => {
                 state.loadingSuggestions = false;
+                state.error = action.payload as string;
+            })
+            // Fetch Job Recommendations
+            .addCase(fetchJobRecommendationsThunk.pending, (state) => {
+                state.loadingJobs = true;
+                state.error = null;
+            })
+            .addCase(fetchJobRecommendationsThunk.fulfilled, (state, action) => {
+                state.loadingJobs = false;
+                state.jobRecommendations = action.payload;
+            })
+            .addCase(fetchJobRecommendationsThunk.rejected, (state, action) => {
+                state.loadingJobs = false;
                 state.error = action.payload as string;
             });
     },

@@ -39,17 +39,16 @@ import { moveTaskOptimistically } from "@/src/features/workspaces/services/works
 import { WPStatus, WPTask, WorkspaceMemberProfile } from "@/src/features/workspaces/services/workspaces-types";
 import {
     Plus,
-    MoreVertical,
     Calendar,
     User as UserIcon,
     MessageSquare,
-    Tag,
     Filter,
     Search,
     ArrowLeft,
     X,
     Clock,
-    CheckCircle2
+    CheckCircle2,
+    Send
 } from "lucide-react";
 import Link from "next/link";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
@@ -98,10 +97,10 @@ export default function ProjectBoardPage() {
     const [isChecklisting, setIsChecklisting] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [tagName, setTagName] = useState("");
-    const [tagColor, setTagColor] = useState("#6366f1");
+    const [tagColor, setTagColor] = useState("#000000");
     const [showTagForm, setShowTagForm] = useState(false);
     const [catName, setCatName] = useState("");
-    const [catColor, setCatColor] = useState("#3b82f6");
+    const [catColor, setCatColor] = useState("#000000");
     const [showCatForm, setShowCatForm] = useState(false);
 
     // Filters & Search
@@ -109,7 +108,7 @@ export default function ProjectBoardPage() {
     const [filterPriority, setFilterPriority] = useState<string | null>(null);
     const [filterAssignee, setFilterAssignee] = useState<string | null>(null);
 
-    // Pour éviter les erreurs d'hydratation avec dnd
+    // Hydration check for dnd
     const [enabled, setEnabled] = useState(false);
 
     useEffect(() => {
@@ -156,10 +155,10 @@ export default function ProjectBoardPage() {
 
         const newStatusId = destination.droppableId;
 
-        // Update optimiste
+        // Optimistic update
         dispatch(moveTaskOptimistically({ taskId: draggableId, statusId: newStatusId }));
 
-        // Appel API
+        // API call
         dispatch(updateTaskStatusThunk({ taskId: draggableId, statusId: newStatusId }));
     };
 
@@ -306,10 +305,7 @@ export default function ProjectBoardPage() {
 
         setIsUploading(true);
         try {
-            // 1. Upload to Cloudinary
             const uploadRes = await dispatch(uploadTaskAttachmentThunk(file)).unwrap();
-
-            // 2. Save metadata to DB
             await dispatch(addAttachmentThunk({
                 taskId: editingTask.id,
                 fileData: {
@@ -354,112 +350,105 @@ export default function ProjectBoardPage() {
 
     if (loading && !board) {
         return (
-            <div className="flex justify-center items-center h-[80vh]">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+            <div className="flex justify-center items-center h-[80vh] bg-[#F4F2EE] dark:bg-black">
+                <div className="w-5 h-5 border border-neutral-300 border-t-[#0A66C2] rounded-full animate-spin" />
             </div>
         );
     }
 
+    const iconStroke = 1.25;
+
     return (
-        <div className="h-[90vh] flex flex-col overflow-hidden">
-            {/* Header du Board */}
-            <div className="px-6 py-4 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between shadow-sm z-10">
-                <div className="flex items-center gap-4">
-                    <Link href={`/workspaces/${board?.statuses[0]?.project_id ? '..' : '..'}`} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-100 dark:border-gray-700">
-                        <ArrowLeft size={18} />
+        <div className="min-h-screen flex flex-col overflow-hidden bg-[#F4F2EE] dark:bg-black font-sans antialiased text-neutral-800">
+            {/* Board Header */}
+            <div className="px-4 md:px-6 py-4 md:py-5 bg-white dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800 flex items-center justify-between shrink-0 shadow-sm">
+                <div className="flex items-center gap-6">
+                    <Link
+                        href={`/workspaces/${board?.project.workspace_id || ''}`}
+                        className="flex items-center gap-2 px-3 py-1.5 text-neutral-500 hover:text-neutral-900 dark:hover:text-white transition-all text-xs font-bold uppercase tracking-tight group"
+                    >
+                        <ArrowLeft size={16} strokeWidth={iconStroke} className="group-hover:-translate-x-1 transition-transform" />
+                        <span>Retour</span>
                     </Link>
+                    <div className="h-4 w-px bg-neutral-100 dark:bg-neutral-800" />
                     <div>
-                        <h1 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">Tableau Kanban</h1>
-                        <div className="flex items-center gap-2 text-xs text-gray-400">
-                            <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded font-mono">#{projectId?.toString().slice(0, 6)}</span>
-                            <span>•</span>
-                            <span className="font-semibold">{board?.tasks.length || 0} Tâches actives</span>
+                        <div className="flex items-center gap-2 mb-0.5">
+                            <span className="text-[11px] font-semibold text-neutral-500 dark:text-neutral-400">Workspace /</span>
+                            <span className="text-[11px] font-semibold text-neutral-900 dark:text-white">Tableau kanban</span>
                         </div>
+                        <h1 className="text-lg font-semibold text-neutral-900 dark:text-white tracking-tight font-inter">
+                            Tableau de bord opérationnel
+                        </h1>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                    <div className="relative hidden md:block group">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+                <div className="flex items-center gap-4">
+                    <div className="relative hidden lg:block">
+                        <Search size={14} strokeWidth={iconStroke} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-neutral-400" />
                         <input
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Rechercher une tâche ou #ID..."
-                            className="pl-9 pr-4 py-1.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl text-xs w-64 focus:ring-2 focus:ring-indigo-500 focus:bg-white dark:focus:bg-gray-900 transition-all outline-none"
+                            placeholder="Rechercher..."
+                            className="pl-10 pr-4 py-2 border border-neutral-200 dark:border-neutral-700 rounded-lg bg-transparent text-sm font-medium text-neutral-900 dark:text-white placeholder:text-neutral-400 w-64 outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all"
                         />
                     </div>
 
-                    {/* Select Priority Filter */}
-                    <select
-                        value={filterPriority || ""}
-                        onChange={(e) => setFilterPriority(e.target.value || null)}
-                        className="px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                    >
-                        <option value="">Priorité (Toutes)</option>
-                        <option value="low">Faible</option>
-                        <option value="medium">Moyenne</option>
-                        <option value="high">Haute</option>
-                        <option value="blocker">Bloquant</option>
-                    </select>
-
-                    <select
-                        value={filterAssignee || ""}
-                        onChange={(e) => setFilterAssignee(e.target.value || null)}
-                        className="px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none"
-                    >
-                        <option value="">Assigné (Tous)</option>
-                        {members.map(m => (
-                            <option key={m.user_id} value={m.user_id}>{m.display_name}</option>
-                        ))}
-                    </select>
+                    <div className="flex items-center gap-2">
+                        <select
+                            value={filterPriority || ""}
+                            onChange={(e) => setFilterPriority(e.target.value || null)}
+                            className="px-3 py-2 text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 bg-transparent border border-neutral-200 dark:border-neutral-700 rounded-lg outline-none cursor-pointer focus:border-[#0A66C2] transition-all"
+                        >
+                            <option value="">Priorité</option>
+                            <option value="low">Faible</option>
+                            <option value="medium">Moyenne</option>
+                            <option value="high">Haute</option>
+                            <option value="blocker">Bloquant</option>
+                        </select>
+                    </div>
 
                     {(searchQuery || filterPriority || filterAssignee) && (
                         <button
                             onClick={() => { setSearchQuery(""); setFilterPriority(null); setFilterAssignee(null); }}
-                            className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                            title="Effacer les filtres"
+                            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"
                         >
-                            <X size={16} />
+                            <X size={16} strokeWidth={iconStroke} />
                         </button>
                     )}
                 </div>
             </div>
 
-            {/* Kanban Horizontal Scroll Container */}
+            {/* Kanban Board */}
             <DragDropContext onDragEnd={onDragEnd}>
-                <div className="flex-1 overflow-x-auto p-6 bg-[#f8fafc] dark:bg-[#0f172a]/40">
-                    <div className="flex gap-6 h-full min-w-max pb-4">
+                <div className="flex-1 overflow-x-auto p-6 md:p-8">
+                    <div className="flex gap-6 md:gap-8 h-full min-w-max">
                         {board?.statuses.map((status: WPStatus) => (
                             <Droppable key={status.id} droppableId={status.id}>
                                 {(provided, snapshot) => (
                                     <div
                                         {...provided.droppableProps}
                                         ref={provided.innerRef}
-                                        className={`w-80 flex flex-col h-full rounded-2xl transition-colors duration-200 ${snapshot.isDraggingOver ? 'bg-indigo-50/50 dark:bg-indigo-900/10' : ''}`}
+                                        className={`w-72 md:w-80 flex flex-col h-full rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 shadow-sm transition-colors ${snapshot.isDraggingOver ? 'bg-neutral-50 dark:bg-neutral-800' : ''}`}
                                     >
-                                        {/* Column Header */}
-                                        <div className="flex items-center justify-between mb-4 px-2 shrink-0">
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: status.color }} />
-                                                <h3 className="font-bold text-gray-800 dark:text-gray-100 uppercase tracking-wider text-[11px]">
+                                        <div className="flex items-center justify-between mb-4 px-3 pt-3 shrink-0">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-2 h-2 rounded-sm" style={{ backgroundColor: status.color }} />
+                                                <h3 className="font-semibold text-neutral-900 dark:text-white text-[13px] font-inter">
                                                     {status.label}
                                                 </h3>
-                                                <span className="bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-[10px] font-bold px-2 py-0.5 rounded-full border border-gray-100 dark:border-gray-700">
+                                                <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">
                                                     {tasksByStatus[status.id]?.length || 0}
                                                 </span>
                                             </div>
-                                            <div className="flex items-center gap-0.5">
-                                                <button
-                                                    onClick={() => openCreateModal(status.id)}
-                                                    className="p-1.5 hover:bg-white dark:hover:bg-gray-800 rounded-lg text-gray-400 hover:text-indigo-600 transition-all"
-                                                >
-                                                    <Plus size={16} />
-                                                </button>
-                                            </div>
+                                            <button
+                                                onClick={() => openCreateModal(status.id)}
+                                                className="p-1.5 rounded-full border border-neutral-200 dark:border-neutral-700 text-neutral-400 hover:text-[#0A66C2] hover:border-[#0A66C2]/50 bg-white/60 dark:bg-neutral-900/60 transition-colors"
+                                            >
+                                                <Plus size={14} strokeWidth={2.5} />
+                                            </button>
                                         </div>
 
-                                        {/* Column Tasks Container */}
-                                        <div className="flex-1 space-y-3 overflow-y-auto pr-2 scrollbar-hide">
+                                        <div className="flex-1 space-y-3 overflow-y-auto px-3 pb-4 pt-3 scrollbar-hide">
                                             {tasksByStatus[status.id]?.map((task: WPTask, index: number) => (
                                                 <Draggable key={task.id} draggableId={task.id} index={index}>
                                                     {(provided, snapshot) => (
@@ -468,104 +457,51 @@ export default function ProjectBoardPage() {
                                                             {...provided.draggableProps}
                                                             {...provided.dragHandleProps}
                                                             onClick={() => openDetailDrawer(task)}
-                                                            style={{
-                                                                ...provided.draggableProps.style,
-                                                                transform: snapshot.isDragging ? provided.draggableProps.style?.transform : 'none'
-                                                            }}
-                                                            className={`bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all active:ring-2 active:ring-indigo-500/20 group relative overflow-hidden cursor-pointer ${snapshot.isDragging ? 'shadow-2xl ring-2 ring-indigo-500 z-50 scale-[1.02]' : ''}`}
+                                                            className={`bg-white dark:bg-neutral-900 p-4 rounded-lg border border-neutral-200 dark:border-neutral-800 cursor-pointer transition-colors ${snapshot.isDragging ? 'border-[#0A66C2] shadow-md z-50' : 'hover:border-[#0A66C2]/70'}`}
                                                         >
-
-                                                            <div className="flex items-start justify-between mb-2">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <div className={`w-2 h-2 rounded-full ${task.priority === 'blocker' || task.priority === 'high' ? 'bg-red-500' :
-                                                                        task.priority === 'medium' ? 'bg-amber-500' : 'bg-emerald-500'
+                                                            <div className="flex items-start justify-between mb-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <div className={`w-1.5 h-1.5 rounded-sm ${task.priority === 'blocker' || task.priority === 'high' ? 'bg-red-600' :
+                                                                        task.priority === 'medium' ? 'bg-amber-500' : 'bg-neutral-300'
                                                                         }`} />
-                                                                    <span className="text-[10px] font-semibold text-gray-500 dark:text-gray-400 capitalize">
-                                                                        {task.priority}
+                                                                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400 capitalize">
+                                                                        {task.priority || 'medium'}
                                                                     </span>
-                                                                    {task.category_name && (
-                                                                        <>
-                                                                            <span className="text-gray-300 dark:text-gray-600 px-1">•</span>
-                                                                            <span className="text-[10px] font-semibold" style={{ color: task.category_color || undefined }}>
-                                                                                {task.category_name}
-                                                                            </span>
-                                                                        </>
-                                                                    )}
                                                                 </div>
-                                                                <span className="text-[10px] text-gray-400 font-mono">
+                                                                <span className="text-[11px] font-medium text-neutral-400 dark:text-neutral-500">
                                                                     #{task.task_number}
                                                                 </span>
                                                             </div>
 
-                                                            {task.tags && task.tags.length > 0 && (
-                                                                <div className="flex flex-wrap gap-1 mb-2.5">
-                                                                    {task.tags.map(tag => (
-                                                                        <span key={tag.id} className="text-[10px] font-medium px-1.5 py-0.5 rounded-md border border-gray-100 dark:border-gray-800 text-gray-500 bg-gray-50/50 dark:bg-gray-900/50">
-                                                                            {tag.name}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            )}
-
-                                                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1.5 line-clamp-2 leading-snug transition-colors">
+                                                            <h4 className="font-semibold text-neutral-900 dark:text-white text-[13px] mb-2 leading-snug tracking-tight font-inter">
                                                                 {task.title}
                                                             </h4>
 
-                                                            {task.description && (
-                                                                <p className="text-[12px] text-gray-400 dark:text-gray-500 mb-4 line-clamp-2 leading-relaxed">
-                                                                    {task.description}
-                                                                </p>
-                                                            )}
-
-                                                            <div className="flex items-center justify-between pt-3 border-t border-gray-50 dark:border-gray-800/50">
-                                                                <div className="flex -space-x-1 items-center">
+                                                            <div className="flex items-center justify-between pt-4 border-t border-neutral-50 dark:border-neutral-950/50 mt-auto">
+                                                                <div className="flex items-center gap-3">
                                                                     {(() => {
                                                                         const profile = getAssigneeProfile(task.assignee_id);
                                                                         return profile ? (
-                                                                            <div title={profile.display_name} className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-gray-800 bg-gray-100 dark:bg-gray-800 flex items-center justify-center overflow-hidden border border-gray-100 dark:border-gray-700">
+                                                                            <div className="w-6 h-6 rounded-full border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800 flex items-center justify-center overflow-hidden">
                                                                                 {profile.avatar_url ? (
                                                                                     <img src={profile.avatar_url} alt={profile.display_name} className="w-full h-full object-cover" />
                                                                                 ) : (
-                                                                                    <span className="text-gray-600 dark:text-gray-400 text-[8px] font-bold uppercase">{profile.display_name.slice(0, 2)}</span>
+                                                                                    <span className="text-neutral-500 dark:text-neutral-400 text-[9px] font-semibold uppercase">{profile.display_name?.slice(0, 2) || '?'}</span>
                                                                                 )}
                                                                             </div>
                                                                         ) : (
-                                                                            <div className="w-5 h-5 rounded-full ring-2 ring-white dark:ring-gray-800 bg-gray-50 dark:bg-gray-900/50 flex items-center justify-center text-gray-300 text-[8px] border border-gray-100 dark:border-gray-800">
-                                                                                <UserIcon size={10} />
+                                                                            <div className="w-6 h-6 rounded-full border border-dashed border-neutral-200 dark:border-neutral-700 flex items-center justify-center text-neutral-400 dark:text-neutral-500">
+                                                                                <UserIcon size={12} strokeWidth={iconStroke} />
                                                                             </div>
                                                                         );
                                                                     })()}
-                                                                    {task.due_date && (
-                                                                        <div className="ml-2 flex items-center gap-1 text-[10px] text-gray-400 font-medium">
-                                                                            <Calendar size={10} className={(() => {
-                                                                                const today = new Date();
-                                                                                today.setHours(0, 0, 0, 0);
-                                                                                return new Date(task.due_date) < today ? 'text-red-400' : 'text-gray-300';
-                                                                            })()} />
-                                                                            <span className={(() => {
-                                                                                const today = new Date();
-                                                                                today.setHours(0, 0, 0, 0);
-                                                                                return new Date(task.due_date) < today ? 'text-red-500' : '';
-                                                                            })()}>
-                                                                                {new Date(task.due_date).toLocaleDateString([], { day: 'numeric', month: 'short' })}
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
                                                                 </div>
-                                                                <div className="flex items-center gap-3 text-gray-400/80">
-                                                                    {task.checklist_total && task.checklist_total > 0 ? (
-                                                                        <div className="flex items-center gap-1 text-[10px]">
-                                                                            <CheckCircle2 size={12} className={task.checklist_completed === task.checklist_total ? 'text-emerald-400' : ''} />
+
+                                                                <div className="flex items-center gap-3 text-neutral-500 dark:text-neutral-400">
+                                                                    {(task.checklist_total || 0) > 0 && (
+                                                                        <div className="flex items-center gap-1 text-[11px] font-semibold">
+                                                                            <CheckCircle2 size={12} strokeWidth={iconStroke} />
                                                                             <span>{task.checklist_completed}/{task.checklist_total}</span>
-                                                                        </div>
-                                                                    ) : null}
-                                                                    <div className="flex items-center gap-1 text-[10px]">
-                                                                        <MessageSquare size={12} />
-                                                                        <span>{task.comment_count || 0}</span>
-                                                                    </div>
-                                                                    {task.story_points && (
-                                                                        <div className="text-[10px] font-mono text-gray-400">
-                                                                            {task.story_points}pt
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -576,12 +512,11 @@ export default function ProjectBoardPage() {
                                             ))}
                                             {provided.placeholder}
 
-                                            {/* Add Task Quick Access */}
                                             <button
                                                 onClick={() => openCreateModal(status.id)}
-                                                className="w-full py-4 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 flex items-center justify-center gap-2 text-[12px] font-bold text-gray-400 hover:border-indigo-300 hover:bg-white dark:hover:bg-gray-800 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all group mt-2"
+                                                className="w-full py-3 border border-dashed border-neutral-200 dark:border-neutral-700 rounded-lg flex items-center justify-center gap-2 text-[13px] font-semibold text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white hover:border-[#0A66C2]/50 bg-neutral-50/40 dark:bg-neutral-900/20 transition-colors mt-2"
                                             >
-                                                <Plus size={16} className="group-hover:rotate-90 transition-transform duration-300" />
+                                                <Plus size={14} strokeWidth={2} />
                                                 Ajouter une tâche
                                             </button>
                                         </div>
@@ -593,49 +528,41 @@ export default function ProjectBoardPage() {
                 </div>
             </DragDropContext>
 
-            {/* Modal Création Tâche */}
+            {/* Create Task Modal */}
             {isTaskModalOpen && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white dark:bg-gray-900 rounded-3xl w-full max-w-lg p-8 shadow-2xl animate-in zoom-in-95 duration-300 border border-gray-200 dark:border-gray-800">
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-2xl font-black text-gray-900 dark:text-white uppercase tracking-tight">Nouvelle tâche</h2>
-                            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-600">
-                                <Plus size={24} />
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white dark:bg-neutral-900 w-full max-w-lg p-8 rounded-xl border border-neutral-200 dark:border-neutral-800 shadow-xl">
+                        <div className="flex justify-between items-start mb-6">
+                            <div>
+                                <h2 className="text-xl font-semibold text-neutral-900 dark:text-white tracking-tight font-inter">Nouvelle tâche</h2>
+                                <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 font-medium">Configuration opérationnelle</p>
                             </div>
+                            <button onClick={() => setIsTaskModalOpen(false)} className="p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors">
+                                <X size={20} strokeWidth={iconStroke} />
+                            </button>
                         </div>
 
-                        <form onSubmit={handleCreateTask} className="space-y-6">
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Titre de la tâche</label>
+                        <form onSubmit={handleCreateTask} className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Intitulé *</label>
                                 <input
                                     autoFocus
                                     type="text"
                                     value={taskTitle}
                                     onChange={(e) => setTaskTitle(e.target.value)}
-                                    placeholder="Qu'est-ce qu'on fait ?"
-                                    className="w-full px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all placeholder:text-gray-400 font-bold"
+                                    placeholder="Titre de la tâche..."
+                                    className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] text-sm font-medium text-neutral-900 dark:text-white transition-all"
                                     required
                                 />
                             </div>
 
-                            <div className="space-y-1.5">
-                                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Description</label>
-                                <textarea
-                                    value={taskDesc}
-                                    onChange={(e) => setTaskDesc(e.target.value)}
-                                    rows={4}
-                                    placeholder="Ajoutez des détails, des notes ou des instructions..."
-                                    className="w-full px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none resize-none transition-all text-sm font-medium"
-                                />
-                            </div>
-
                             <div className="grid grid-cols-2 gap-5">
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Priorité</label>
+                                <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Priorité</label>
                                     <select
                                         value={taskPriority}
                                         onChange={(e) => setTaskPriority(e.target.value)}
-                                        className="w-full px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none appearance-none font-bold"
+                                        className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] text-sm font-medium text-neutral-900 dark:text-white cursor-pointer transition-all"
                                     >
                                         <option value="low">Faible</option>
                                         <option value="medium">Moyenne</option>
@@ -643,109 +570,12 @@ export default function ProjectBoardPage() {
                                         <option value="blocker">Bloquant</option>
                                     </select>
                                 </div>
-                                <div className="space-y-1.5">
-                                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Échéance</label>
-                                    <div className="relative group">
-                                        <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
-                                        <input type="text" placeholder="Bientôt..." className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 text-gray-400 font-bold outline-none cursor-not-allowed" disabled />
-                                    </div>
-                                </div>
-                                <div className="col-span-2 space-y-1.5">
-                                    <label className="block text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Assigner à</label>
+                                <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Assigné à</label>
                                     <select
                                         value={taskAssignee}
                                         onChange={(e) => setTaskAssignee(e.target.value)}
-                                        className="w-full px-5 py-3.5 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50 text-gray-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none appearance-none font-bold"
-                                    >
-                                        <option value="">Non assigné</option>
-                                        {members.map(m => (
-                                            <option key={m.user_id} value={m.user_id}>{m.display_name} (@{m.username})</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-4 pt-6 border-t border-gray-100 dark:border-gray-800/50">
-                                <button type="button" onClick={() => setIsTaskModalOpen(false)} className="flex-1 px-4 py-4 rounded-2xl font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all uppercase tracking-widest text-xs">Fermer</button>
-                                <button type="submit" className="flex-2 px-8 py-4 rounded-2xl font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-xl shadow-indigo-200 dark:shadow-none transition-all active:scale-[0.98] uppercase tracking-widest text-xs">Créer la tâche</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-            {/* Drawer Détail Tâche */}
-            {isDetailDrawerOpen && editingTask && (
-                <div className="fixed inset-0 z-[150] flex justify-end animate-in fade-in duration-300">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsDetailDrawerOpen(false)} />
-                    <div className="relative w-full max-w-2xl bg-white dark:bg-gray-950 h-full shadow-2xl animate-in slide-in-from-right duration-300 border-l border-gray-200 dark:border-gray-800 flex flex-col">
-
-                        {/* Drawer Header */}
-                        <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 dark:border-gray-800/50">
-                            <div className="flex items-center gap-3">
-                                <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-1 rounded-lg font-mono text-xs font-bold">
-                                    ID-{editingTask.task_number}
-                                </span>
-                                <div className="h-4 w-px bg-gray-200 dark:bg-gray-800" />
-                                <span className="text-xs text-gray-400 font-medium italic">Créé par Vous</span>
-                            </div>
-                            <button onClick={() => setIsDetailDrawerOpen(false)} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-all text-gray-400 hover:text-gray-900 dark:hover:text-white">
-                                <X size={20} />
-                            </button>
-                        </div>
-
-                        {/* Drawer Content */}
-                        <div className="flex-1 overflow-y-auto p-8 space-y-8">
-                            {/* Title Section */}
-                            <div className="space-y-2">
-                                <input
-                                    value={editTitle}
-                                    onChange={(e) => setEditTitle(e.target.value)}
-                                    className="w-full text-3xl font-black bg-transparent border-none focus:ring-0 text-gray-900 dark:text-white placeholder:text-gray-300 p-0"
-                                    placeholder="Titre de la tâche..."
-                                />
-                            </div>
-
-                            {/* Property Grid */}
-                            <div className="grid grid-cols-2 gap-x-12 gap-y-6 bg-gray-50/50 dark:bg-gray-900/40 p-6 rounded-2xl border border-gray-100 dark:border-gray-800/50">
-                                <div className="space-y-1.5 font-bold">
-                                    <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none">
-                                        <Clock size={12} /> Statut
-                                    </label>
-                                    <select
-                                        value={editStatus}
-                                        onChange={(e) => setEditStatus(e.target.value)}
-                                        className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold appearance-none cursor-pointer"
-                                    >
-                                        {board?.statuses.map(s => (
-                                            <option key={s.id} value={s.id}>{s.label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="space-y-1.5 font-bold">
-                                    <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none">
-                                        <Tag size={12} /> Priorité
-                                    </label>
-                                    <select
-                                        value={editPriority}
-                                        onChange={(e) => setEditPriority(e.target.value)}
-                                        className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold appearance-none cursor-pointer"
-                                    >
-                                        <option value="low">Faible</option>
-                                        <option value="medium">Moyenne</option>
-                                        <option value="high">Haute</option>
-                                        <option value="blocker">Bloquant</option>
-                                    </select>
-                                </div>
-
-                                <div className="space-y-1.5 font-bold">
-                                    <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none">
-                                        <UserIcon size={12} /> Assigné à
-                                    </label>
-                                    <select
-                                        value={editAssignee}
-                                        onChange={(e) => setEditAssignee(e.target.value)}
-                                        className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold appearance-none cursor-pointer"
+                                        className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] text-sm font-medium text-neutral-900 dark:text-white cursor-pointer transition-all"
                                     >
                                         <option value="">Non assigné</option>
                                         {members.map(m => (
@@ -753,341 +583,178 @@ export default function ProjectBoardPage() {
                                         ))}
                                     </select>
                                 </div>
-
-                                <div className="space-y-1.5 font-bold">
-                                    <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none">
-                                        <Calendar size={12} /> Échéance
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={editDueDate || ""}
-                                        onChange={(e) => setEditDueDate(e.target.value || null)}
-                                        className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold appearance-none cursor-pointer"
-                                    />
-                                </div>
-
-                                <div className="col-span-2 space-y-3 pt-4 border-t border-gray-100 dark:border-gray-800/30">
-                                    <div className="flex items-center justify-between">
-                                        <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none font-bold">
-                                            <Tag size={12} /> Étiquettes
-                                        </label>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {projectTags.map(tag => {
-                                            const isSelected = editingTask.tags?.some(t => t.id === tag.id);
-                                            return (
-                                                <button
-                                                    key={tag.id}
-                                                    onClick={() => toggleTag(tag.id)}
-                                                    className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors border ${isSelected
-                                                        ? 'bg-gray-100 dark:bg-gray-800'
-                                                        : 'bg-transparent border-gray-100 dark:border-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
-                                                        }`}
-                                                    style={{
-                                                        color: isSelected ? tag.color : undefined,
-                                                        borderColor: isSelected ? `${tag.color}40` : undefined
-                                                    }}
-                                                >
-                                                    {tag.name}
-                                                </button>
-                                            );
-                                        })}
-
-                                        {!showTagForm ? (
-                                            <button
-                                                onClick={() => setShowTagForm(true)}
-                                                className="px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border border-dashed border-indigo-200 dark:border-indigo-800/50"
-                                            >
-                                                +
-                                            </button>
-                                        ) : (
-                                            <form onSubmit={handleCreateTag} className="flex items-center gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={tagName}
-                                                    onChange={(e) => setTagName(e.target.value)}
-                                                    placeholder="Nouvelle..."
-                                                    className="text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 outline-none w-24"
-                                                    autoFocus
-                                                    onBlur={() => !tagName && setShowTagForm(false)}
-                                                />
-                                                <input
-                                                    type="color"
-                                                    value={tagColor}
-                                                    onChange={(e) => setTagColor(e.target.value)}
-                                                    className="w-4 h-4 rounded-full border-none p-0 cursor-pointer overflow-hidden bg-transparent"
-                                                />
-                                                <button type="submit" className="hidden" />
-                                            </form>
-                                        )}
-                                        {projectTags.length === 0 && !showTagForm && (
-                                            <span className="text-[11px] text-gray-400 italic">Aucune étiquette</span>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Categories Section */}
-                                <div className="col-span-2 space-y-3 pt-4 border-t border-gray-100 dark:border-gray-800/30">
-                                    <div className="flex items-center justify-between">
-                                        <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none font-bold">
-                                            <MoreVertical size={12} /> Catégorie
-                                        </label>
-                                    </div>
-
-                                    <div className="flex flex-wrap gap-1.5">
-                                        <button
-                                            onClick={() => setEditCategory("")}
-                                            className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors border ${!editCategory
-                                                ? 'bg-gray-100 dark:bg-gray-800 border-gray-300 text-gray-700 dark:text-gray-300'
-                                                : 'bg-transparent border-gray-100 dark:border-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
-                                                }`}
-                                        >
-                                            Aucune
-                                        </button>
-                                        {categories.map(cat => (
-                                            <button
-                                                key={cat.id}
-                                                onClick={() => setEditCategory(cat.id)}
-                                                className={`px-2 py-1 rounded-lg text-[11px] font-medium transition-colors border ${editCategory === cat.id
-                                                    ? 'bg-gray-100 dark:bg-gray-800'
-                                                    : 'bg-transparent border-gray-100 dark:border-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200'
-                                                    }`}
-                                                style={{
-                                                    color: editCategory === cat.id ? cat.color : undefined,
-                                                    borderColor: editCategory === cat.id ? `${cat.color}40` : undefined
-                                                }}
-                                            >
-                                                {cat.name}
-                                            </button>
-                                        ))}
-
-                                        {!showCatForm ? (
-                                            <button
-                                                onClick={() => setShowCatForm(true)}
-                                                className="px-2 py-1 rounded-lg text-[11px] font-bold text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors border border-dashed border-indigo-200 dark:border-indigo-800/50"
-                                            >
-                                                +
-                                            </button>
-                                        ) : (
-                                            <form onSubmit={handleCreateCategory} className="flex items-center gap-2">
-                                                <input
-                                                    type="text"
-                                                    value={catName}
-                                                    onChange={(e) => setCatName(e.target.value)}
-                                                    placeholder="Nouvelle..."
-                                                    className="text-[11px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 outline-none w-24"
-                                                    autoFocus
-                                                    onBlur={() => !catName && setShowCatForm(false)}
-                                                />
-                                                <input
-                                                    type="color"
-                                                    value={catColor}
-                                                    onChange={(e) => setCatColor(e.target.value)}
-                                                    className="w-4 h-4 rounded-full border-none p-0 cursor-pointer overflow-hidden bg-transparent"
-                                                />
-                                                <button type="submit" className="hidden" />
-                                            </form>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Checklist Section */}
-                                <div className="col-span-2 space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800/30">
-                                    <div className="flex items-center justify-between">
-                                        <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none font-bold">
-                                            <CheckCircle2 size={12} /> Checklist ({checklist.filter(i => i.is_completed).length}/{checklist.length})
-                                        </label>
-                                    </div>
-                                    <div className="space-y-2">
-                                        {checklist.map(item => (
-                                            <div key={item.id} className="flex items-center gap-3 group/item">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={item.is_completed}
-                                                    onChange={() => toggleChecklistItem(item.id, item.is_completed)}
-                                                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                                                />
-                                                <span className={`flex-1 text-sm ${item.is_completed ? 'text-gray-400 line-through' : 'text-gray-700 dark:text-gray-300'}`}>
-                                                    {item.title}
-                                                </span>
-                                                <button onClick={() => handleDeleteChecklistItem(item.id)} className="opacity-0 group-hover/item:opacity-100 p-1 text-gray-400 hover:text-red-500 transition-all">
-                                                    <X size={12} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        <form onSubmit={handleAddChecklistItem} className="flex items-center gap-2 pt-2">
-                                            <input
-                                                value={newChecklistItem}
-                                                onChange={(e) => setNewChecklistItem(e.target.value)}
-                                                placeholder="Ajouter un élément..."
-                                                className="flex-1 text-sm bg-transparent border-none focus:ring-0 p-0 text-indigo-600 placeholder:text-gray-400 italic"
-                                            />
-                                            {newChecklistItem && (
-                                                <button type="submit" disabled={isChecklisting} className="text-[10px] font-black uppercase text-indigo-600">Ajouter</button>
-                                            )}
-                                        </form>
-                                    </div>
-                                </div>
-
-                                {/* Estimation Grid */}
-                                <div className="col-span-2 grid grid-cols-3 gap-6 pt-4 border-t border-gray-100 dark:border-gray-800/30">
-                                    <div className="space-y-1.5 font-bold">
-                                        <label className="text-[10px] text-gray-400 uppercase tracking-widest">Story Pts</label>
-                                        <input
-                                            type="number"
-                                            value={editStoryPoints}
-                                            onChange={(e) => setEditStoryPoints(e.target.value ? Number(e.target.value) : "")}
-                                            className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold"
-                                            placeholder="0"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 font-bold">
-                                        <label className="text-[10px] text-gray-400 uppercase tracking-widest">Estimé (h)</label>
-                                        <input
-                                            type="number"
-                                            value={editTimeEstimate}
-                                            onChange={(e) => setEditTimeEstimate(e.target.value ? Number(e.target.value) : "")}
-                                            className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold"
-                                            placeholder="0h"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5 font-bold">
-                                        <label className="text-[10px] text-gray-400 uppercase tracking-widest">Réel (h)</label>
-                                        <input
-                                            type="number"
-                                            value={editTimeSpent}
-                                            onChange={(e) => setEditTimeSpent(e.target.value ? Number(e.target.value) : "")}
-                                            className="w-full text-sm bg-transparent border-none focus:ring-0 p-0 text-gray-700 dark:text-gray-300 font-bold"
-                                            placeholder="0h"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Attachments Section */}
-                                <div className="col-span-2 space-y-4 pt-4 border-t border-gray-100 dark:border-gray-800/30">
-                                    <div className="flex items-center justify-between">
-                                        <label className="flex items-center gap-2 text-[10px] text-gray-400 uppercase tracking-widest leading-none font-bold">
-                                            <Plus size={12} /> Pièces Jointes ({attachments.length})
-                                        </label>
-                                        <label className="cursor-pointer text-[10px] font-black uppercase text-indigo-600 hover:text-indigo-700 transition-colors">
-                                            {isUploading ? "Envoi..." : "Télécharger"}
-                                            <input type="file" className="hidden" onChange={handleFileUpload} disabled={isUploading} />
-                                        </label>
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {attachments.map((att: any) => (
-                                            <a
-                                                key={att.id}
-                                                href={att.file_url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="flex items-center gap-3 p-3 rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 hover:border-indigo-500/30 transition-all group"
-                                            >
-                                                <div className="w-8 h-8 rounded-lg bg-white dark:bg-gray-800 flex items-center justify-center text-indigo-500 shadow-sm border border-gray-100 dark:border-gray-700">
-                                                    <Tag size={16} />
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <p className="text-xs font-bold text-gray-700 dark:text-gray-300 truncate">{att.file_name}</p>
-                                                    <p className="text-[10px] text-gray-400">{(att.file_size / 1024).toFixed(1)} KB</p>
-                                                </div>
-                                            </a>
-                                        ))}
-                                    </div>
-                                </div>
                             </div>
 
-                            {/* Description Section */}
-                            <div className="space-y-4">
-                                <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Description</label>
-                                <textarea
-                                    value={editDesc}
-                                    onChange={(e) => setEditDesc(e.target.value)}
-                                    rows={10}
-                                    placeholder="Décrivez cette tâche en détail..."
-                                    className="w-full text-[15px] leading-relaxed bg-transparent border-none focus:ring-0 text-gray-600 dark:text-gray-400 resize-none p-0 min-h-[200px]"
+                            <div className="flex gap-3 pt-4">
+                                <button type="button" onClick={() => setIsTaskModalOpen(false)} className="flex-1 px-4 py-2.5 text-sm font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded transition-colors">Annuler</button>
+                                <button type="submit" className="flex-1 px-4 py-2.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-sm font-semibold rounded shadow-sm transition-colors">Confirmer</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Task Detail Drawer */}
+            {isDetailDrawerOpen && editingTask && (
+                <div className="fixed inset-0 z-[150] flex justify-end">
+                    <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsDetailDrawerOpen(false)} />
+                    <div className="relative w-full max-w-2xl bg-white dark:bg-neutral-900 h-full border-l border-neutral-200 dark:border-neutral-800 flex flex-col shadow-xl">
+
+                        <div className="flex items-center justify-between px-8 py-6 border-b border-neutral-200 dark:border-neutral-800 shrink-0 bg-white dark:bg-neutral-900">
+                            <div className="flex items-center gap-4">
+                                <span className="text-[11px] font-semibold bg-[#0A66C2] text-white px-2.5 py-1 rounded">
+                                    #{editingTask.task_number}
+                                </span>
+                                <span className="text-[12px] font-medium text-neutral-500 dark:text-neutral-400">Détails de la tâche</span>
+                            </div>
+                            <button onClick={() => setIsDetailDrawerOpen(false)} className="p-2 text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-full transition-colors">
+                                <X size={20} strokeWidth={iconStroke} />
+                            </button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto p-8 space-y-8 pb-24 scrollbar-hide bg-white dark:bg-neutral-900">
+                            <div className="space-y-2">
+                                <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Titre</label>
+                                <input
+                                    value={editTitle}
+                                    onChange={(e) => setEditTitle(e.target.value)}
+                                    className="w-full text-xl font-semibold bg-transparent border-none focus:ring-0 text-neutral-900 dark:text-white p-0 tracking-tight font-inter outline-none"
+                                    placeholder="Titre..."
                                 />
                             </div>
 
-                            {/* Comment Section */}
-                            <div className="space-y-6 pt-8 border-t border-gray-100 dark:border-gray-800/50">
-                                <label className="flex items-center gap-2 text-xs font-black text-gray-400 uppercase tracking-widest">
-                                    <MessageSquare size={14} /> Commentaires ({comments.length})
-                                </label>
+                            <div className="grid grid-cols-2 gap-6">
+                                <DrawerProp label="Statut" icon={<Clock size={12} strokeWidth={iconStroke} />}>
+                                    <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-[13px] font-medium text-neutral-900 dark:text-white outline-none cursor-pointer focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all">
+                                        {board?.statuses.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                                    </select>
+                                </DrawerProp>
 
-                                {/* Comment List */}
-                                <div className="space-y-6">
+                                <DrawerProp label="Priorité" icon={<Filter size={12} strokeWidth={iconStroke} />}>
+                                    <select value={editPriority} onChange={(e) => setEditPriority(e.target.value)} className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-[13px] font-medium text-neutral-900 dark:text-white outline-none cursor-pointer focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all">
+                                        <option value="low">Faible</option>
+                                        <option value="medium">Moyenne</option>
+                                        <option value="high">Haute</option>
+                                        <option value="blocker">Bloquant</option>
+                                    </select>
+                                </DrawerProp>
+
+                                <DrawerProp label="Assigné à" icon={<UserIcon size={12} strokeWidth={iconStroke} />}>
+                                    <select value={editAssignee} onChange={(e) => setEditAssignee(e.target.value)} className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-[13px] font-medium text-neutral-900 dark:text-white outline-none cursor-pointer focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all">
+                                        <option value="">Non assigné</option>
+                                        {members.map(m => <option key={m.user_id} value={m.user_id}>{m.display_name}</option>)}
+                                    </select>
+                                </DrawerProp>
+
+                                <DrawerProp label="Date de fin" icon={<Calendar size={12} strokeWidth={iconStroke} />}>
+                                    <input type="date" value={editDueDate || ""} onChange={(e) => setEditDueDate(e.target.value || null)} className="w-full px-4 py-2.5 bg-transparent border border-neutral-300 dark:border-neutral-700 rounded-lg text-[13px] font-medium text-neutral-900 dark:text-white outline-none cursor-pointer focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all" />
+                                </DrawerProp>
+
+                                <div className="col-span-2 space-y-4 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Checklist</label>
+                                        <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{checklist.filter(i => i.is_completed).length}/{checklist.length}</span>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {checklist.map(item => (
+                                            <div key={item.id} className="flex items-center gap-3 group">
+                                                <input type="checkbox" checked={item.is_completed} onChange={() => toggleChecklistItem(item.id, item.is_completed)} className="w-4 h-4 rounded border-neutral-300 text-[#0A66C2] focus:ring-[#0A66C2]" />
+                                                <span className={`flex-1 text-[13px] font-medium ${item.is_completed ? 'text-neutral-400 line-through' : 'text-neutral-700 dark:text-neutral-300'}`}>{item.title}</span>
+                                                <button onClick={() => handleDeleteChecklistItem(item.id)} className="text-neutral-400 hover:text-red-500 transition-colors"><X size={14} strokeWidth={iconStroke} /></button>
+                                            </div>
+                                        ))}
+                                        <form onSubmit={handleAddChecklistItem} className="pt-2">
+                                            <input value={newChecklistItem} onChange={(e) => setNewChecklistItem(e.target.value)} placeholder="Ajouter un élément..." className="w-full px-4 py-2.5 border border-neutral-300 dark:border-neutral-700 rounded-lg text-[13px] font-medium text-neutral-900 dark:text-white placeholder:text-neutral-400 outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all" />
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+                                <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Description</label>
+                                <textarea
+                                    value={editDesc}
+                                    onChange={(e) => setEditDesc(e.target.value)}
+                                    rows={6}
+                                    placeholder="Spécifications techniques..."
+                                    className="w-full text-sm leading-relaxed bg-transparent border border-neutral-200 dark:border-neutral-700 rounded-lg px-4 py-2.5 text-neutral-600 dark:text-neutral-400 font-medium resize-none outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] transition-all"
+                                />
+                            </div>
+
+                            <div className="space-y-4 pt-6 border-t border-neutral-200 dark:border-neutral-800">
+                                <label className="text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 block">Commentaires</label>
+                                <div className="space-y-4">
                                     {comments.map((comment: any) => (
-                                        <div key={comment.id} className="flex gap-4 group">
-                                            <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center shrink-0 border border-indigo-100 dark:border-indigo-800 overflow-hidden">
-                                                {comment.avatar_url ? (
-                                                    <img src={comment.avatar_url} alt={comment.display_name} className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <span className="text-indigo-600 dark:text-indigo-400 text-xs font-black uppercase">{comment.display_name?.slice(0, 2)}</span>
-                                                )}
+                                        <div key={comment.id} className="flex gap-3">
+                                            <div className="w-8 h-8 flex items-center justify-center shrink-0 text-neutral-500 dark:text-neutral-400 border border-neutral-200 dark:border-neutral-700 rounded-full font-semibold text-[11px]">
+                                                {comment.display_name?.slice(0, 2)}
                                             </div>
                                             <div className="flex-1 space-y-1">
                                                 <div className="flex items-center justify-between">
-                                                    <span className="text-xs font-black text-gray-900 dark:text-white uppercase tracking-tight">{comment.display_name}</span>
-                                                    <span className="text-[10px] text-gray-400 italic">{new Date(comment.created_at).toLocaleDateString()}</span>
+                                                    <span className="text-[12px] font-semibold text-neutral-900 dark:text-white">{comment.display_name}</span>
+                                                    <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">{new Date(comment.created_at).toLocaleDateString()}</span>
                                                 </div>
-                                                <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed bg-gray-50 dark:bg-gray-900/40 p-3 rounded-2xl border border-gray-100 dark:border-gray-800/50">
+                                                <div className="p-3 rounded-lg border border-neutral-200 dark:border-neutral-700 text-sm text-neutral-600 dark:text-neutral-400 font-medium">
                                                     {comment.content}
-                                                </p>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
                                 </div>
 
-                                {/* Add Comment Form */}
-                                <form onSubmit={handleCommentSubmit} className="relative group">
+                                <form onSubmit={handleCommentSubmit} className="relative pt-2">
                                     <textarea
                                         value={newComment}
                                         onChange={(e) => setNewComment(e.target.value)}
-                                        placeholder="Écrivez un commentaire..."
-                                        className="w-full px-5 py-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 text-sm text-gray-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none resize-none transition-all pr-32"
-                                        rows={2}
+                                        placeholder="Note de suivi..."
+                                        className="w-full px-4 py-3 bg-transparent border border-neutral-200 dark:border-neutral-700 rounded-lg text-sm font-medium outline-none focus:border-[#0A66C2] focus:ring-1 focus:ring-[#0A66C2] pb-12 transition-all"
+                                        rows={3}
                                     />
                                     <button
                                         type="submit"
                                         disabled={isCommenting || !newComment.trim()}
-                                        className="absolute right-3 bottom-3 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-50 disabled:grayscale"
+                                        className="absolute right-3 bottom-3 bg-[#0A66C2] hover:bg-[#004182] text-white px-4 py-2 text-[12px] font-semibold rounded disabled:opacity-50 transition-colors"
                                     >
-                                        {isCommenting ? "Envoi..." : "Envoyer"}
+                                        Envoyer
                                     </button>
                                 </form>
                             </div>
                         </div>
 
-                        {/* Drawer Footer */}
-                        <div className="px-8 py-6 border-t border-gray-100 dark:border-gray-800/50 flex items-center justify-between">
-                            <div className="text-[10px] text-gray-400 italic font-medium">
-                                Mis à jour {new Date(editingTask.updated_at).toLocaleDateString()}
-                            </div>
-                            <div className="flex items-center gap-4">
+                        <div className="px-8 py-6 border-t border-neutral-200 dark:border-neutral-800 flex items-center justify-between shrink-0 bg-white dark:bg-neutral-900">
+                            <span className="text-[11px] font-medium text-neutral-500 dark:text-neutral-400">Dernière mise à jour : {new Date(editingTask.updated_at).toLocaleDateString()}</span>
+                            <div className="flex items-center gap-3">
                                 <button
                                     onClick={() => setIsDetailDrawerOpen(false)}
-                                    className="px-6 py-2.5 rounded-xl text-xs font-black text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-all uppercase tracking-widest"
+                                    className="px-5 py-2.5 text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 hover:bg-neutral-50 dark:hover:bg-neutral-800 rounded transition-colors"
                                 >
-                                    Annuler
+                                    Fermer
                                 </button>
                                 <button
                                     onClick={handleUpdateTask}
                                     disabled={isSaving}
-                                    className="flex items-center gap-2 px-8 py-2.5 rounded-xl text-xs font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-[0.98] uppercase tracking-widest disabled:opacity-50"
+                                    className="px-6 py-2.5 bg-[#0A66C2] hover:bg-[#004182] text-white text-[13px] font-semibold rounded shadow-sm disabled:opacity-50 transition-colors"
                                 >
-                                    {isSaving ? "Enregistrement..." : (
-                                        <>
-                                            <CheckCircle2 size={14} />
-                                            Enregistrer
-                                        </>
-                                    )}
+                                    {isSaving ? "Synchronisation..." : "Mettre à jour"}
                                 </button>
                             </div>
                         </div>
                     </div>
                 </div>
             )}
+        </div>
+    );
+}
+
+function DrawerProp({ label, icon, children }: { label: string, icon: React.ReactNode, children: React.ReactNode }) {
+    return (
+        <div className="space-y-2 pb-4 border-b border-neutral-200 dark:border-neutral-800">
+            <label className="flex items-center gap-2 text-[13px] font-semibold text-neutral-600 dark:text-neutral-400 font-inter">
+                {icon} {label}
+            </label>
+            <div>
+                {children}
+            </div>
         </div>
     );
 }

@@ -62,16 +62,13 @@ export class ForbiddenException extends AppError {
  */
 export class DatabaseQueryError extends AppError {
   constructor(message: string, public readonly originalError?: any) {
-    super(
-      originalError?.message ? `${message} | Detail: ${originalError.message}` : message,
-      500,
-      true
-    );
+    // On ne passe PAS originalError au super (message client)
+    super(message, 500, true);
+
+    // On garde le détail uniquement pour la console/logs serveurs
     if (originalError) {
-      // On garde console.error pour le stack trace complet en dev
-      console.error("=== Database Error Detail ===");
+      console.error("=== [INTERNAL DB ERROR] ===");
       console.error(originalError);
-      console.error("=============================");
     }
   }
 }

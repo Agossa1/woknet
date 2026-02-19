@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/features/auth/hooks/useAuth";
 import { z } from "zod";
+import { Shield, Smartphone, Loader2 } from "lucide-react";
 
 const loginSchema = z.object({
     identifier: z.string().min(1, "L'identifiant est requis"),
@@ -14,7 +15,7 @@ const loginSchema = z.object({
 
 export default function SignInPage() {
     const router = useRouter();
-    const { login, isLoading, error, successMessage, clearAuthMessages } = useAuth();
+    const { login, verify2FA, isLoading, error, successMessage, clearAuthMessages } = useAuth();
     const [showPassword, setShowPassword] = useState(false);
     const [formData, setFormData] = useState({
         identifier: "",
@@ -22,6 +23,9 @@ export default function SignInPage() {
         rememberMe: false
     });
     const [localError, setLocalError] = useState<string | null>(null);
+    const [requires2FA, setRequires2FA] = useState(false);
+    const [twoFactorToken, setTwoFactorToken] = useState("");
+    const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -41,12 +45,88 @@ export default function SignInPage() {
                 password: formData.password
             };
 
-            await login(payload as any);
-            router.push("/feed");
+            const response = await login(payload as any) as any;
+            if (response.user?.requires2FA) {
+                setRequires2FA(true);
+                setPendingUserId(response.user.userId);
+            } else {
+                router.push("/feed");
+            }
         } catch (err: any) {
             setLocalError(err.message || "Une erreur s'est produite lors de la connexion");
         }
     };
+
+    const handle2FAVerify = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!pendingUserId || twoFactorToken.length < 6) return;
+
+        try {
+            await verify2FA(pendingUserId, twoFactorToken);
+            router.push("/feed");
+        } catch (err: any) {
+            setLocalError(err.message || "Code 2FA invalide");
+        }
+    };
+
+    if (requires2FA) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-4">
+                <div className="w-full max-w-md space-y-8">
+                    <div className="text-center">
+                        <div className="inline-flex items-center justify-center w-16 h-16 bg-neutral-100 dark:bg-neutral-800 rounded-2xl mb-4 text-neutral-900 dark:text-white">
+                            <Shield size={32} />
+                        </div>
+                        <h1 className="text-2xl font-black tracking-tight text-gray-900 dark:text-white">
+                            Double authentification
+                        </h1>
+                        <p className="text-gray-500 mt-2">
+                            Entrez le code généré par votre application d'authentification.
+                        </p>
+                    </div>
+
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+                        <form onSubmit={handle2FAVerify} className="space-y-6">
+                            {localError && (
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3 text-center">
+                                    <p className="text-sm text-red-800 dark:text-red-300 font-medium">
+                                        {localError}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="space-y-4">
+                                <input
+                                    type="text"
+                                    maxLength={6}
+                                    placeholder="000000"
+                                    value={twoFactorToken}
+                                    onChange={(e) => setTwoFactorToken(e.target.value)}
+                                    className="w-full py-4 text-center text-3xl font-black tracking-[0.5em] border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none transition-all dark:bg-gray-900 dark:text-white"
+                                    autoFocus
+                                />
+                                <button
+                                    type="submit"
+                                    disabled={isLoading || twoFactorToken.length < 6}
+                                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-bold py-3.5 px-4 rounded-xl text-base transition-all flex items-center justify-center gap-2"
+                                >
+                                    {isLoading && <Loader2 size={18} className="animate-spin" />}
+                                    Vérifier
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setRequires2FA(false)}
+                                    className="w-full text-sm font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                                >
+                                    Retour à la connexion
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 px-4">

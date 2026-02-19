@@ -101,7 +101,7 @@ export const FollowsListModal = ({ isOpen, onClose, profileId, type, title }: Fo
                                             <p className="font-black text-sm truncate group-hover:text-blue-600 transition-colors">
                                                 {user.display_name}
                                             </p>
-                                            <p className="text-xs text-gray-500 truncate lowercase">
+                                            <p className="text-xs text-gray-500 truncate">
                                                 @{user.username}
                                             </p>
                                             {user.headline && (
@@ -116,8 +116,8 @@ export const FollowsListModal = ({ isOpen, onClose, profileId, type, title }: Fo
                                         <button
                                             onClick={() => handleFollowToggle(user.user_id)}
                                             className={`ml-4 px-4 py-1.5 rounded-full text-xs font-black transition-all active:scale-95 ${isFollowingMap[user.user_id]
-                                                    ? "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500"
-                                                    : "bg-black dark:bg-white text-white dark:text-black hover:opacity-80"
+                                                ? "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500"
+                                                : "bg-black dark:bg-white text-white dark:text-black hover:opacity-80"
                                                 }`}
                                         >
                                             {isFollowingMap[user.user_id] ? "Suivi(e)" : "Suivre"}

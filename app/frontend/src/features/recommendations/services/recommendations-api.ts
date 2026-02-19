@@ -19,6 +19,13 @@ export class RecommendationsServices {
     public async getProfileSuggestions(limit: number = 10): Promise<ProfileSuggestion[]> {
         return this.apiClient.get<ProfileSuggestion[]>(`${this.BASE_PATH}/profiles?limit=${limit}`);
     }
+
+    /**
+     * Fetches job suggestions based on the user profile and signals
+     */
+    public async getJobSuggestions(limit: number = 10): Promise<any[]> {
+        return this.apiClient.get<any[]>(`${this.BASE_PATH}/jobs?limit=${limit}`);
+    }
 }
 
 export const recommendationsApi = new RecommendationsServices(api);

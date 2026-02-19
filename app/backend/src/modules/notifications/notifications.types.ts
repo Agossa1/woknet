@@ -6,6 +6,7 @@ export enum NotificationType {
     NEW_FOLLOW = 'NEW_FOLLOW',
     CONNECTION_REQUEST = 'CONNECTION_REQUEST',
     NEW_MESSAGE = 'NEW_MESSAGE',
+    MENTION = 'MENTION',
     SYSTEM = 'SYSTEM'
 }
 

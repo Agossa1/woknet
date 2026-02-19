@@ -102,6 +102,29 @@ export class AuthRouter {
         );
 
         this.router.get(
+            '/2fa/setup',
+            AuthGuard.authenticate,
+            (req, res, next) => this.controller.setup2FA(req, res, next)
+        );
+
+        this.router.post(
+            '/2fa/enable',
+            AuthGuard.authenticate,
+            (req, res, next) => this.controller.enable2FA(req, res, next)
+        );
+
+        this.router.post(
+            '/2fa/disable',
+            AuthGuard.authenticate,
+            (req, res, next) => this.controller.disable2FA(req, res, next)
+        );
+
+        this.router.post(
+            '/2fa/verify',
+            (req, res, next) => this.controller.verify2FALogin(req, res, next)
+        );
+
+        this.router.get(
             '/job-types',
             (req, res, next) => this.controller.getJobTypes(req, res, next)
         );

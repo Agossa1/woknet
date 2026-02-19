@@ -198,11 +198,18 @@ export default function EditPostModal({ isOpen, onClose, post, userAvatar, userN
                         <div className="grid grid-cols-2 gap-2 mt-4">
                             {/* Existing Media */}
                             {existingMediaUrls.map((url, index) => (
-                                <div key={`existing-${index}`} className="relative group rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+                                <div key={`existing-${index}`} className="relative group rounded-xl border border-gray-100 dark:border-gray-800 bg-black/80 flex items-center justify-center">
                                     {post.type === 'VIDEO' ? (
-                                        <VideoPlayer src={url} className="w-full h-full object-cover aspect-video" />
+                                        <VideoPlayer
+                                            src={url}
+                                            className="max-w-full max-h-[360px] w-auto h-auto object-contain block"
+                                        />
                                     ) : (
-                                        <img src={url} alt="Existing" className="w-full h-40 object-cover" />
+                                        <img
+                                            src={url}
+                                            alt="Existing"
+                                            className="max-w-full max-h-[360px] w-auto h-auto object-contain block"
+                                        />
                                     )}
                                     <button
                                         onClick={() => removeExistingMedia(index)}
@@ -215,11 +222,18 @@ export default function EditPostModal({ isOpen, onClose, post, userAvatar, userN
 
                             {/* New Previews */}
                             {previewUrls.map((url, index) => (
-                                <div key={`preview-${index}`} className="relative group rounded-xl overflow-hidden border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800">
+                                <div key={`preview-${index}`} className="relative group rounded-xl border border-gray-100 dark:border-gray-800 bg-black/80 flex items-center justify-center">
                                     {selectedFiles[index]?.type.startsWith('video/') ? (
-                                        <VideoPlayer src={url} className="w-full h-full object-cover aspect-video" />
+                                        <VideoPlayer
+                                            src={url}
+                                            className="max-w-full max-h-[360px] w-auto h-auto object-contain block"
+                                        />
                                     ) : (
-                                        <img src={url} alt="Preview" className="w-full h-40 object-cover" />
+                                        <img
+                                            src={url}
+                                            alt="Preview"
+                                            className="max-w-full max-h-[360px] w-auto h-auto object-contain block"
+                                        />
                                     )}
                                     <button
                                         onClick={() => removePreviewFile(index)}

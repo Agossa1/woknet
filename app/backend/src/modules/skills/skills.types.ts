@@ -65,3 +65,21 @@ export interface UpdateProfileSkillDTO {
 export interface EndorseSkillDTO {
     endorser_id: string; // From auth token
 }
+
+export interface SkillCategory {
+    id: string;
+    profile_id: string;
+    name: string;
+    created_at: Date;
+}
+
+export interface SkillCategoryMapping {
+    category_id: string;
+    skill_id: string;
+    profile_id: string;
+}
+
+export interface CreateSkillCategoryDTO {
+    profile_id: string;
+    name: string;
+}

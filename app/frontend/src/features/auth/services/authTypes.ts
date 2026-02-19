@@ -33,6 +33,8 @@ export interface User {
     updated_at: Date,
     followers_count?: number,
     following_count?: number,
+    two_factor_enabled?: boolean,
+    requires2FA?: boolean,
 }
 
 

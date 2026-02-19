@@ -5,20 +5,27 @@ import { Post, CreatePostDTO, UpdatePostDTO, PostType } from "./posts.types";
 import { CloudinaryService } from "../../infra/storage/cloudinary.service";
 import { socketService } from "../../infra/realtime/socket.service";
 import { HashtagsService } from "../hashtags/hashtags.service";
+import { FeedRepository } from "../feeds/feed.repository";
+import { FeedService } from "../feeds/feed.services";
 
 export class PostsServices {
-    private readonly FEED_CACHE_KEY = "posts:feed:latest";
     private readonly POST_CACHE_PREFIX = "post:";
 
     private readonly hashtagsService: HashtagsService;
+    private readonly mentionsService: any; // Use any or Import it
 
     constructor(
         private readonly repository: IPostsRepository,
+        private readonly feedRepository: FeedRepository,
         private readonly redis: RedisClientType,
         private readonly cloudinary: CloudinaryService,
-        private readonly logger: Logger
+        private readonly logger: Logger,
+        private readonly feedService: FeedService
     ) {
         this.hashtagsService = new HashtagsService();
+        // Integration mentions
+        const { MentionsModule } = require("../mentions/mentions.module");
+        this.mentionsService = MentionsModule.getService();
     }
 
     async createPost(dto: CreatePostDTO, file?: Buffer, fileMimeType?: string): Promise<Post> {
@@ -41,11 +48,26 @@ export class PostsServices {
         if (post && post.content) {
             this.hashtagsService.processPostHashtags(post.id, post.content)
                 .catch(err => this.logger.instance.error(`[Hashtags] Failed to process hashtags for post ${post.id}: ${err}`));
+
+            // Process Mentions
+            this.mentionsService.processMentions(post.content, post.profile_id, 'post', post.id)
+                .catch((err: any) => this.logger.instance.error(`[Mentions] Failed to process mentions for post ${post.id}: ${err}`));
         }
 
+        // Invalidation intelligente : On force le rafraîchissement du feed de l'auteur
+        await this.feedRepository.invalidateUserFeed(post.profile_id);
+
+        // NOTE: On n'invalide PAS le cache des followers ici pour éviter le "Fan-out" (surcharge Redis).
+        // Stratégie :
+        // 1. WebSockets (ci-dessous) pour l'affichage temps réel immédiat.
+        // 2. TTL du cache (5 min) pour la cohérence des données au prochain rechargement.
         // Invalidate feed cache on new post
         if (post.visibility === 'PUBLIC') {
-            await this.redis.del(this.FEED_CACHE_KEY);
+            // Invalidation du cache invité (Page 1 par défaut) pour que le post apparaisse vite
+            await this.redis.del('feed:guest:p1:l20');
+
+            // Diffusion sur la room globale "feed" à laquelle tous les clients sont abonnés
+            // (voir SocketService.init où chaque socket rejoint la room 'feed').
             socketService.emit('new_post', post, 'feed');
         }
 
@@ -79,22 +101,30 @@ export class PostsServices {
 
     async getFeed(page: number = 1, limit: number = 20, currentProfileId?: string): Promise<Post[]> {
         const offset = (page - 1) * limit;
-        const userCacheKey = currentProfileId ? `${this.FEED_CACHE_KEY}:${currentProfileId}` : this.FEED_CACHE_KEY;
+        let posts: any[] = [];
 
-        // Cache only the first page
-        if (page === 1 && limit === 20) {
-            const cachedFeed = await this.redis.get(userCacheKey);
-            if (cachedFeed) {
-                return JSON.parse(cachedFeed);
-            }
+        // 1. Optimisation Cache Invités (Guest)
+        if (!currentProfileId) {
+            const guestCacheKey = `feed:guest:p${page}:l${limit}`;
+            const cached = await this.redis.get(guestCacheKey);
+            if (cached) return JSON.parse(cached);
+
+            posts = await this.repository.findFeed(limit, offset, currentProfileId);
+            
+            // Cache 60s pour les invités (protection DB + fraîcheur raisonnable)
+            await this.redis.set(guestCacheKey, JSON.stringify(posts), { EX: 60 });
+            return posts;
         }
 
-        const posts = await this.repository.findFeed(limit, offset, currentProfileId);
-
-        if (page === 1 && limit === 20) {
-            // Cache for 2 minutes for authenticated users, 10 minutes for guest
-            const ttl = currentProfileId ? 120 : 600;
-            await this.redis.set(userCacheKey, JSON.stringify(posts), { EX: ttl });
+        // 2. Logique Utilisateurs Connectés (Power Feed)
+        try {
+            // Utilise le FeedService qui contient la logique de Jitter, Pool élargi et Recommandations
+            const result = await this.feedService.getPowerFeed(currentProfileId, page);
+            posts = result.items;
+        } catch (error) {
+            this.logger.instance.error(`[PostsServices] Error fetching PowerFeed: ${error}`);
+            // Fallback en cas d'erreur
+            posts = await this.repository.findFeed(limit, offset, currentProfileId);
         }
 
         return posts;
@@ -105,7 +135,6 @@ export class PostsServices {
 
         // Sync Cache
         await this.redis.set(`${this.POST_CACHE_PREFIX}${id}`, JSON.stringify(post), { EX: 3600 });
-        await this.redis.del(this.FEED_CACHE_KEY);
 
         return post;
     }
@@ -114,7 +143,6 @@ export class PostsServices {
         const deleted = await this.repository.delete(id);
         if (deleted) {
             await this.redis.del(`${this.POST_CACHE_PREFIX}${id}`);
-            await this.redis.del(this.FEED_CACHE_KEY);
         }
         return deleted;
     }
@@ -129,5 +157,25 @@ export class PostsServices {
     async unlikePost(postId: string): Promise<void> {
         await this.repository.decrementLikes(postId);
         await this.redis.del(`${this.POST_CACHE_PREFIX}${postId}`);
+    }
+
+    /**
+     * Préchauffe le cache pour le feed invité (Page 1)
+     * Appelé au démarrage du serveur pour éviter la latence du premier appel.
+     */
+    async warmupGuestFeed(): Promise<void> {
+        try {
+            this.logger.instance.info("[Cache Warmup] Starting guest feed warmup...");
+            const limit = 20;
+            const offset = 0;
+            const guestCacheKey = `feed:guest:p1:l${limit}`;
+
+            const posts = await this.repository.findFeed(limit, offset, undefined);
+            
+            await this.redis.set(guestCacheKey, JSON.stringify(posts), { EX: 60 });
+            this.logger.instance.info(`[Cache Warmup] Guest feed warmed up (${posts.length} items)`);
+        } catch (error) {
+            this.logger.instance.error(`[Cache Warmup] Failed: ${error}`);
+        }
     }
 }

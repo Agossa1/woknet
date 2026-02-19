@@ -26,3 +26,15 @@ export const fetchProfileSuggestionsThunk = createAsyncThunk<ProfileSuggestion[]
         }
     }
 );
+
+export const fetchJobRecommendationsThunk = createAsyncThunk<any[], number | undefined>(
+    'recommendations/fetchJobs',
+    async (limit = 10, { rejectWithValue }) => {
+        try {
+            return await recommendationsApi.getJobSuggestions(limit);
+        } catch (error: any) {
+            console.error("Failed to fetch job recommendations:", error);
+            return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch job recommendations');
+        }
+    }
+);

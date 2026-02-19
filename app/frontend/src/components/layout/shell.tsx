@@ -30,9 +30,11 @@ export function Shell({ children }: { children: React.ReactNode }) {
         }
     }, [isAuthenticated, user, isOnboardingPath, isAuthPath, router]);
 
-    // Hide shell on auth paths, onboarding, landing page, OR companies pages (standalone mode)
+    // Hide shell on auth paths, onboarding, landing page, OR companies/jobs/workspaces pages (standalone mode)
     const isCompaniesPath = pathname?.startsWith('/companies');
-    const showShell = isAuthenticated && !isAuthPath && !isOnboardingPath && !isCompaniesPath && (!isRoot || isAuthenticated);
+    const isJobsPath = pathname?.startsWith('/jobs');
+    const isWorkspacesPath = pathname?.startsWith('/workspaces');
+    const showShell = isAuthenticated && !isAuthPath && !isOnboardingPath && !isCompaniesPath && !isJobsPath && !isWorkspacesPath && (!isRoot || isAuthenticated);
 
     if (isLoading) {
         return (

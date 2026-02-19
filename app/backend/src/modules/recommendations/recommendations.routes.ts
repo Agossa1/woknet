@@ -26,6 +26,13 @@ export class RecommendationsRouter {
             AuthGuard.authenticate as any,
             this.controller.getProfileSuggestions
         );
+
+        // Recommandations de jobs basées sur le profil et les interactions
+        this.router.get(
+            "/jobs",
+            AuthGuard.authenticate as any,
+            this.controller.getJobSuggestions
+        );
     }
 
     public getRouter(): Router {

@@ -12,7 +12,11 @@ import { SkillsModule } from "../modules/skills/skills.module";
 import { ProjectsModule } from "../modules/projects/projects.module";
 import { WorkspacesModule } from "../modules/workspaces/workspaces.modules";
 import { CompaniesModule } from "../modules/companies/companies.modules";
-
+import { LanguagesModule } from "../modules/languages/languages.module";
+import { CertificationsModule } from "../modules/certifications/certifications.module";
+import { FeaturedContentModule } from "../modules/featured-content/featured-content.module";
+import { UserRecommendationsModule } from "../modules/user-recommendations/user-recommendations.modules";
+import { FeedModule } from "../modules/feeds/feed.modules";
 const router = Router();
 
 // --- 1. Initialisation des services partagés ---
@@ -112,5 +116,26 @@ router.use('/companies', companiesModule.getRouter());
 import { JobsModule } from "../modules/jobs/jobs.modules";
 const jobsModule = new JobsModule();
 router.use('/jobs', jobsModule.getRouter());
+
+// Languages
+router.use('/languages', LanguagesModule.init(database, logger));
+
+// Certifications
+router.use('/certifications', CertificationsModule.init(database, logger));
+
+// Featured Content
+router.use('/featured-content', FeaturedContentModule.init(database, logger));
+
+// User Recommendations (Testimonials)
+
+const userRecommendationsModule = new UserRecommendationsModule();
+router.use('/user-recommendations', userRecommendationsModule.getRouter());
+
+// Feed
+router.use('/feed', FeedModule.getInstance().getRouter());
+
+// Debug endpoint
+import debugRoutes from "../modules/debug/debug.routes";
+router.use('/debug', debugRoutes);
 
 export default router;

@@ -11,16 +11,25 @@ import { NotificationsService } from "../notifications/notifications.services";
 export class CommentsServices {
     private readonly COMMENTS_CACHE_PREFIX = "comments:post:";
 
+    private readonly mentionsService: any;
+
     constructor(
         private readonly repository: ICommentsRepository,
         private readonly postsRepository: IPostsRepository,
         private readonly notificationsService: NotificationsService | null,
         private readonly redis: RedisClientType,
         private readonly logger: Logger
-    ) { }
+    ) {
+        const { MentionsModule } = require("../mentions/mentions.module");
+        this.mentionsService = MentionsModule.getService();
+    }
 
     async createComment(dto: CreateCommentDTO): Promise<Comment> {
         const comment = await this.repository.create(dto);
+
+        // Process Mentions
+        this.mentionsService.processMentions(comment.content, comment.profile_id, 'comment', comment.id)
+            .catch((err: any) => this.logger.instance.error(`[Mentions] Failed to process mentions for comment ${comment.id}: ${err}`));
 
         // Increment post comments count
         await this.postsRepository.incrementComments(dto.post_id);
