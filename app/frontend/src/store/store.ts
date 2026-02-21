@@ -18,6 +18,7 @@ import companiesReducer from "../features/companies/services/companies-slice";
 import languagesReducer from "../features/languages/services/language-slices";
 import certificationsReducer from "../features/certifications/services/certification-slices";
 import featuredReducer from "../features/featured-content/services/featured-slices";
+import learningsReducer from "../features/learnings/services/learnings-slice";
 
 const rootReducer = combineReducers({
     auth: authReducer,
@@ -38,7 +39,8 @@ const rootReducer = combineReducers({
     companies: companiesReducer,
     languages: languagesReducer,
     certifications: certificationsReducer,
-    featured: featuredReducer
+    featured: featuredReducer,
+    learnings: learningsReducer
 })
 
 

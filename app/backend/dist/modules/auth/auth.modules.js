@@ -15,7 +15,6 @@ const mail_provider_1 = __importDefault(require("../../utils/email/mail.provider
 const passwordServices_1 = require("../../infra/services/passwords/passwordServices");
 const token_manager_1 = require("../../config/tokens/token-manager");
 const mail_repository_1 = require("../../utils/email/mail.repository");
-const client_1 = __importDefault(require("@redis/client/dist/lib/client"));
 const auth_controller_1 = require("./auth.controller");
 const auth_routes_1 = require("./auth.routes");
 class AuthModule {
@@ -23,14 +22,14 @@ class AuthModule {
         const db = new configDB_1.default();
         const logger = new winston_1.default();
         const errorHandler = new middleware_error_1.ErrorHandler(logger.instance);
-        const authRepository = new auth_repository_1.AuthRepository(db, redis_1.default, logger);
+        const authRepository = new auth_repository_1.AuthRepository(db, logger, redis_1.default);
         const mailProvider = new mail_provider_1.default();
         const mailRepository = new mail_repository_1.EmailLogRepository(db, logger);
         const mailServices = new email_services_1.YumiMailService(mailProvider, mailRepository, logger);
         const tokenManager = new token_manager_1.TokenManager();
         const password = new passwordServices_1.PasswordService();
         // 2. Initialisation du Service Métier
-        const authService = new auth_services_1.AuthServices(authRepository, mailServices, password, logger, errorHandler, tokenManager, client_1.default);
+        const authService = new auth_services_1.AuthServices(authRepository, redis_1.default, tokenManager, logger, password, mailServices);
         // 3. Initialisation du Contrôleur
         const authController = new auth_controller_1.AuthController(authService, logger);
         // 4. Initialisation du Router (On passe l'instance du controller, sans parenthèses)

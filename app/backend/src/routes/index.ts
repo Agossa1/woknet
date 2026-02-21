@@ -134,6 +134,11 @@ router.use('/user-recommendations', userRecommendationsModule.getRouter());
 // Feed
 router.use('/feed', FeedModule.getInstance().getRouter());
 
+// Learnings (Formations)
+import { LearningsModule } from "../modules/learnings/learnings.modules";
+const learningsModule = new LearningsModule();
+router.use('/learnings', learningsModule.getRouter());
+
 // Debug endpoint
 import debugRoutes from "../modules/debug/debug.routes";
 router.use('/debug', debugRoutes);

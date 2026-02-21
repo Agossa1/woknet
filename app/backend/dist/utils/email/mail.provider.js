@@ -15,6 +15,7 @@ class NodemailerProvider {
             host: process.env.EMAIL_HOST,
             port: Number(process.env.EMAIL_PORT) || 587,
             secure: process.env.EMAIL_SECURE === 'true',
+            name: "yumi.com", // Évite la fuite du nom d'hôte local (Mac-mini-de-Ben-market.local)
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASSWORD

@@ -25,6 +25,7 @@ export class UploadController {
             if (req.body.type === 'banner') folder = 'worknet/banners';
             if (req.body.type === 'project') folder = 'worknet/projects';
             if (req.body.type === 'task') folder = 'worknet/tasks';
+            if (req.body.type === 'course') folder = 'worknet/courses';
 
             this.logger.instance.info(`[UploadController] Uploading file to folder: ${folder} for user ${req.user?.id}`);
             const imageUrl = await this.cloudinaryService.uploadImage(req.file.buffer, folder);

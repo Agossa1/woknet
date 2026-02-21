@@ -2,36 +2,72 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyOtpPasswordSchema = exports.updatePasswordSchema = exports.resetPasswordSchema = exports.forgotPasswordSchema = exports.verifyOtpSchema = exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
+const identifierSchema = zod_1.z.object({
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/).optional(),
+}).refine(data => data.email || data.phone_number, {
+    message: "Email or phone number is required",
+    path: ["email"]
+});
 exports.registerSchema = zod_1.z.object({
-    full_name: zod_1.z.string().min(3).max(50).describe("Le nom complet doit comporter entre 3 et 50 caractères"),
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    phone_number: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/).optional().describe("Le numéro de téléphone doit être valide"),
-    password: zod_1.z.string().min(6).describe("Le mot de passe doit comporter au moins 6 caractères").regex(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/).describe("Le mot de passe doit contenir au moins une lettre et un chiffre"),
+    full_name: zod_1.z.string().min(3).max(50),
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/).optional(),
+    password: zod_1.z.string()
+        .min(6)
+        .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "Le mot de passe doit contenir au moins une lettre et un chiffre"),
+}).refine(data => data.email || data.phone_number, {
+    message: "L'email ou le numéro de téléphone est requis",
+    path: ["email"]
 });
 exports.loginSchema = zod_1.z.object({
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    password: zod_1.z.string().min(6).describe("Le mot de passe doit comporter au moins 6 caractères"),
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/).optional(),
+    password: zod_1.z.string().min(6),
+}).refine(data => data.email || data.phone_number, {
+    message: "L'email ou le numéro de téléphone est requis",
+    path: ["email"]
 });
 exports.verifyOtpSchema = zod_1.z.object({
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    otp_code: zod_1.z.string().length(6).describe("Le code OTP doit comporter exactement 6 caractères"),
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().optional(),
+    otp_code: zod_1.z.string().length(6),
+}).refine(data => data.email || data.phone_number, {
+    message: "L'email ou le numéro de téléphone est requis",
+    path: ["email"]
 });
-exports.forgotPasswordSchema = zod_1.z.object({
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    phone_number: zod_1.z.string().regex(/^\+?[1-9]\d{1,14}$/).optional().describe("Le numéro de téléphone doit être valide"),
-});
+exports.forgotPasswordSchema = identifierSchema;
 exports.resetPasswordSchema = zod_1.z.object({
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    new_password: zod_1.z.string().min(6).describe("Le mot de passe doit comporter au moins 6 caractères").regex(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/).describe("Le mot de passe doit contenir au moins une lettre et un chiffre"),
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().optional(),
+    otp_code: zod_1.z.string().length(6).optional(),
+    new_password: zod_1.z.string()
+        .min(6)
+        .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "Le mot de passe doit contenir au moins une lettre et un chiffre"),
+}).refine(data => data.email || data.phone_number, {
+    message: "L'email ou le numéro de téléphone est requis",
+    path: ["email"]
 });
 exports.updatePasswordSchema = zod_1.z.object({
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    current_password: zod_1.z.string().min(6).describe("Le mot de passe actuel doit comporter au moins 6 caractères"),
-    new_password: zod_1.z.string().min(6).describe("Le nouveau mot de passe doit comporter au moins 6 caractères").regex(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/).describe("Le nouveau mot de passe doit contenir au moins une lettre et un chiffre"),
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().optional(),
+    current_password: zod_1.z.string().min(6),
+    new_password: zod_1.z.string()
+        .min(6)
+        .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "Le mot de passe doit contenir au moins une lettre et un chiffre"),
+}).refine(data => data.email || data.phone_number, {
+    message: "L'email ou le numéro de téléphone est requis",
+    path: ["email"]
 });
 exports.verifyOtpPasswordSchema = zod_1.z.object({
-    email: zod_1.z.string().email().describe("L'email doit être valide"),
-    otp_code: zod_1.z.string().length(6).describe("Le code OTP doit comporter exactement 6 caractères"),
-    new_password: zod_1.z.string().min(6).describe("Le nouveau mot de passe doit comporter au moins 6 caractères").regex(/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{6,}$/).describe("Le nouveau mot de passe doit contenir au moins une lettre et un chiffre"),
+    email: zod_1.z.string().email().optional(),
+    phone_number: zod_1.z.string().optional(),
+    otp_code: zod_1.z.string().length(6),
+    new_password: zod_1.z.string()
+        .min(6)
+        .regex(/^(?=.*[A-Za-z])(?=.*\d)/, "Le mot de passe doit contenir au moins une lettre et un chiffre"),
+}).refine(data => data.email || data.phone_number, {
+    message: "L'email ou le numéro de téléphone est requis",
+    path: ["email"]
 });
 //# sourceMappingURL=auth.schema.js.map

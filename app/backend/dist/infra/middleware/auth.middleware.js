@@ -49,6 +49,29 @@ class AuthGuard {
         }
     }
     /**
+     * Middleware d'authentification OPTIONNEL.
+     * Si un token est présent, il est vérifié et l'utilisateur est attaché.
+     * Sinon, on continue sans erreur (req.user restera undefined).
+     */
+    static optionalAuthenticate(req, res, next) {
+        try {
+            const token = AuthGuard.extractToken(req);
+            if (!token)
+                return next();
+            const decoded = AuthGuard.tokenManages.verifyAccessToken(token);
+            if (decoded.sub && !decoded.id)
+                decoded.id = decoded.sub;
+            if (isUser(decoded)) {
+                req.user = Object.freeze(decoded);
+            }
+            next();
+        }
+        catch (error) {
+            // En cas d'erreur sur un token optionnel, on continue quand même sans utilisateur
+            next();
+        }
+    }
+    /**
      * Usine à middlewares pour la vérification des rôles.
      * Supporte un rôle unique ou une liste de rôles.
      * Gère la hiérarchie (SUPERADMIN > ADMIN) et les rôles multiples (array).
@@ -99,6 +122,8 @@ class AuthGuard {
         // 3. Fallback parsing manuel (Si cookie-parser n'a pas encore agi)
         const rawCookie = req.headers.cookie;
         if (rawCookie) {
+            const keys = rawCookie.split(';').map(c => c.split('=')[0].trim());
+            AuthGuard.logger.instance.debug(`[AuthGuard] Raw cookie keys: ${keys.join(', ')}`);
             return AuthGuard.parseCookie(rawCookie, 'access_token');
         }
         return null;

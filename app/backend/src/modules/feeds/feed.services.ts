@@ -30,25 +30,42 @@ export class FeedService {
         const offset = (page - 1) * limit;
 
         try {
+            this.logger.instance.info(`[FeedService] getPowerFeed called for user ${userId}, page=${page}`);
+
             const [content, profileRecs, jobRecs] = await Promise.all([
                 this.feedRepo.getMainFeed(userId, limit + 1, offset),
-                page === 1 ? this.profilesRepo.getRecommendedProfiles(userId, 5) : Promise.resolve([]),
-                page === 1 ? this.recRepo.getJobRecommendations(userId, 3) : Promise.resolve([])
+                page === 1 ? this.profilesRepo.getRecommendedProfiles(userId, 5).catch(() => []) : Promise.resolve([]),
+                page === 1 ? this.recRepo.getJobRecommendations(userId, 3).catch(() => []) : Promise.resolve([])
             ]);
 
-            const hasMore = content.length > limit;
-            const slicedContent = hasMore ? content.slice(0, limit) : content;
+            this.logger.instance.info(`[FeedService] Retrieved ${content?.length || 0} posts, ${profileRecs?.length || 0} profile recs, ${jobRecs?.length || 0} job recs`);
+
+            const safeContent = Array.isArray(content) ? content : [];
+            const hasMore = safeContent.length > limit;
+            const slicedContent = hasMore ? safeContent.slice(0, limit) : safeContent;
 
             const diversifiedContent = this.diversifyFeed(slicedContent);
-            const finalFeed = this.assembleFeed(diversifiedContent, profileRecs, jobRecs, page);
+            const finalFeed = this.assembleFeed(diversifiedContent, profileRecs || [], jobRecs || [], page);
 
-            return { items: finalFeed, hasMore };
-        } catch (error) {
-            this.logger.instance.error(`[FeedService] Error assembling feed for ${userId}: ${error}`);
-            const fallback = await this.feedRepo.getMainFeed(userId, limit + 1, offset);
-            const hasMore = fallback.length > limit;
-            const sliced = hasMore ? fallback.slice(0, limit) : fallback;
-            return { items: sliced, hasMore };
+            this.logger.instance.info(`[FeedService] Final feed assembled with ${finalFeed?.length || 0} items`);
+            return { items: finalFeed || [], hasMore };
+        } catch (error: any) {
+            this.logger.instance.error(`[FeedService] Error assembling feed for ${userId}:`, {
+                error: error.message,
+                stack: error.stack
+            });
+
+            try {
+                const fallback = await this.feedRepo.getMainFeed(userId, limit + 1, offset);
+                const safeFallback = Array.isArray(fallback) ? fallback : [];
+                const hasMore = safeFallback.length > limit;
+                const sliced = hasMore ? safeFallback.slice(0, limit) : safeFallback;
+                this.logger.instance.info(`[FeedService] Fallback returned ${sliced.length} items`);
+                return { items: sliced, hasMore };
+            } catch (fallbackError: any) {
+                this.logger.instance.error(`[FeedService] Fallback also failed:`, fallbackError);
+                return { items: [], hasMore: false };
+            }
         }
     }
 
@@ -68,7 +85,7 @@ export class FeedService {
             const fetchLimit = !cursor ? 50 : limit + 2;
 
             // 1. Fetch raw content avec cursor
-            const { items: rawContent, hasMore, nextCursor } = 
+            const { items: rawContent, hasMore, nextCursor } =
                 await this.feedRepo.getMainFeedWithCursor(userId, fetchLimit, cursor);
 
             if (!rawContent || rawContent.length === 0) {
@@ -89,20 +106,23 @@ export class FeedService {
                         item.author_id
                     );
 
+                    const creator = {
+                        reputation_score: item.author_reputation_score || 0,
+                        is_verified: item.author_is_verified || false,
+                        follower_count: item.author_follower_count || 0,
+                        skills: item.author_skills || [],
+                    };
+
                     const finalScore = this.scoringService.calculateFinalScore(
                         item,
-                        { 
-                            reputation_score: 0, 
-                            is_verified: false, 
-                            follower_count: 0 
-                        },
+                        creator,
                         userProfile,
                         isFollowing
                     );
 
                     // Ajout d'un "Jitter" (bruit aléatoire) pour que le feed change légèrement à chaque refresh
                     // comme sur les grands réseaux sociaux.
-                    const randomBoost = Math.random() * 5; 
+                    const randomBoost = Math.random() * 5;
 
                     return {
                         ...item,
@@ -198,9 +218,9 @@ export class FeedService {
             const userProfile = await this.profilesRepo.getProfileByUserId(userId);
             if (userProfile) {
                 return {
-                    id: userProfile.user_id,
-                    skills: userProfile.skills || [],
-                    location: { city: userProfile.location_name }, // Simplifié
+                    id: (userProfile as any).user_id || userId,
+                    skills: (userProfile as any).skills || [],
+                    location: { city: (userProfile as any).location_name }, // Simplifié
                     company_id: null, // Ajouter si disponible dans le profil
                 };
             }
@@ -283,10 +303,21 @@ export class FeedService {
 
         const result: any[] = [];
         const pool = [...filtered];
-        let lastAuthorId: string | null = null;
 
         while (pool.length > 0) {
-            const nextIndex = pool.findIndex(p => this.getAuthorKey(p) !== lastAuthorId);
+            // Anti-clustering: on essaie de ne pas avoir le même auteur sur les 2 derniers slots
+            const prev1 = result.length > 0 ? this.getAuthorKey(result[result.length - 1]) : null;
+            const prev2 = result.length > 1 ? this.getAuthorKey(result[result.length - 2]) : null;
+
+            let nextIndex = pool.findIndex(p => {
+                const author = this.getAuthorKey(p);
+                return author !== prev1 && author !== prev2;
+            });
+
+            // Si on ne trouve pas de post décalé de 2 places, on se contente d'un décalage d'1 place
+            if (nextIndex === -1) {
+                nextIndex = pool.findIndex(p => this.getAuthorKey(p) !== prev1);
+            }
 
             if (nextIndex === -1) {
                 result.push(...pool);
@@ -295,7 +326,6 @@ export class FeedService {
 
             const post = pool.splice(nextIndex, 1)[0];
             result.push(post);
-            lastAuthorId = this.getAuthorKey(post);
         }
 
         return result;

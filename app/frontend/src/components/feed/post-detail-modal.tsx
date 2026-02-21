@@ -194,6 +194,9 @@ export default function PostDetailModal({ isOpen, onClose, post }: PostDetailMod
                                     <span className="text-[10px] text-gray-400">• 2e</span>
                                 </div>
                                 <p className="text-[10px] text-gray-500 dark:text-gray-400 line-clamp-1">{post.headline}</p>
+                                {post.industry_label && (
+                                    <p className="text-[10px] text-gray-400 dark:text-gray-500 line-clamp-1">{post.industry_label}</p>
+                                )}
                                 <p className="text-[10px] text-gray-400 mt-0.5">{formatTimeAgo(post.created_at)}</p>
                             </div>
                         </div>

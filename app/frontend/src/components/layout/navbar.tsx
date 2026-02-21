@@ -27,7 +27,7 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-40 w-full transition-colors duration-200">
+    <nav className="bg-white/95 dark:bg-neutral-950/95 backdrop-blur border-b border-neutral-200 dark:border-neutral-900 sticky top-0 z-40 w-full transition-colors duration-200">
       <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-14">
 
@@ -49,7 +49,7 @@ export default function Navbar() {
               </div>
               <input
                 type="text"
-                className="block w-full pl-10 pr-3 py-1.5 border border-transparent dark:border-gray-700 rounded bg-neutral-50 dark:bg-gray-800 text-neutral-800 dark:text-gray-100 placeholder-neutral-400 focus:outline-none focus:bg-white dark:focus:bg-gray-900 focus:ring-1 focus:ring-neutral-200 dark:focus:ring-gray-700 transition sm:text-[13px] font-medium"
+                className="block w-full pl-10 pr-3 py-1.5 border border-neutral-200 dark:border-neutral-700 rounded bg-[#F4F2EE] dark:bg-black text-neutral-800 dark:text-gray-100 placeholder-neutral-400 focus:outline-none focus:bg-white dark:focus:bg-neutral-950 focus:ring-1 focus:ring-neutral-300 dark:focus:ring-neutral-700 transition sm:text-[13px] font-medium"
                 placeholder="Rechercher sur WorkNet"
               />
             </div>
@@ -68,7 +68,7 @@ export default function Navbar() {
 
             <button
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="p-2 text-neutral-400 hover:text-black dark:hover:text-gray-200 transition"
+              className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-gray-200 transition"
             >
               {mounted && (theme === 'dark' ? <Sun size={18} strokeWidth={iconStroke} /> : <Moon size={18} strokeWidth={iconStroke} />)}
               {!mounted && <Moon size={18} strokeWidth={iconStroke} />}
@@ -76,7 +76,7 @@ export default function Navbar() {
 
             <Link
               href="/messages"
-              className="p-2 text-neutral-400 hover:text-black dark:hover:text-gray-200 transition"
+              className="p-2 text-neutral-400 hover:text-neutral-900 dark:hover:text-gray-200 transition"
               title="Messages"
             >
               <MessageSquare size={18} strokeWidth={iconStroke} />
@@ -84,7 +84,7 @@ export default function Navbar() {
 
             <NotificationBell />
 
-            <div className="relative border-l border-neutral-100 dark:border-gray-700 pl-4 ml-2 h-6 flex items-center">
+            <div className="relative border-l border-neutral-200 dark:border-neutral-800 pl-4 ml-2 h-6 flex items-center">
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
                 className="flex flex-col items-center group"

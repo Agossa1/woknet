@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Home, Users, Briefcase, User, MessageSquare, LogOut, Settings, X, LogIn, UserPlus, Bell, Layers, Building2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Home, Users, Briefcase, User, MessageSquare, LogOut, Settings, X, LogIn, UserPlus, Bell, Layers, Building2, ChevronLeft, ChevronRight, BookOpen } from "lucide-react";
 import { useSidebar } from "../../../src/providers/sidebar-provider";
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from "react";
@@ -12,6 +12,7 @@ const defaultLinks = [
   { label: "Réseau", href: "/connections", icon: Users },
   { label: "Offres d'emploi", href: "/jobs", icon: Briefcase },
   { label: "Espaces pro", href: "/workspaces", icon: Layers },
+  { label: "Formations", href: "/learnings", icon: BookOpen },
   { label: "Entreprises", href: "/companies", icon: Building2 },
   { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Messagerie", href: "/messages", icon: MessageSquare },
@@ -50,13 +51,13 @@ export function AppSidebar() {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-black border-r border-neutral-200 dark:border-neutral-800 lg:static lg:h-screen lg:flex lg:flex-col transition-none ${isCollapsed ? "w-20" : "w-64"} ${isOpen ? "visible" : "invisible lg:visible"
+        className={`fixed inset-y-0 left-0 z-50 bg-white dark:bg-neutral-950 border-r border-neutral-200 dark:border-neutral-900 lg:static lg:h-screen lg:flex lg:flex-col transition-none ${isCollapsed ? "w-20" : "w-64"} ${isOpen ? "visible" : "invisible lg:visible"
           }`}
       >
         {/* Header / Logo */}
-        <div className={`h-16 flex items-center border-b border-neutral-100 dark:border-neutral-800 px-5 ${isCollapsed ? "justify-center" : "justify-between"}`}>
+        <div className={`h-16 flex items-center border-b border-neutral-100 dark:border-neutral-900 px-5 ${isCollapsed ? "justify-center" : "justify-between"}`}>
           <Link href="/feed" className="flex items-center gap-3 overflow-hidden">
-            <div className="w-8 h-8 bg-neutral-950 dark:bg-white rounded-none flex items-center justify-center shrink-0">
+            <div className="w-8 h-8 bg-neutral-950 dark:bg-white rounded flex items-center justify-center shrink-0 shadow-sm">
               <span className="text-white dark:text-black font-extrabold text-[15px]">W</span>
             </div>
             {!isCollapsed && <span className="font-bold text-[17px] tracking-tight text-neutral-900 dark:text-white truncate">WorkNet</span>}
@@ -93,22 +94,21 @@ export function AppSidebar() {
                 key={link.href}
                 href={link.href}
                 className={`flex items-center gap-3 py-2.5 px-5 transition-none group relative ${active
-                  ? "text-neutral-900 dark:text-white font-bold"
+                  ? "text-neutral-900 dark:text-white font-semibold"
                   : "text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white"
                   } ${isCollapsed ? "justify-center px-0" : ""}`}
                 onClick={handleLinkClick}
               >
-                {/* Active Indicator Flat */}
                 {active && !isCollapsed && (
-                  <div className="absolute left-0 top-2 bottom-2 w-[4px] bg-neutral-950 dark:bg-white" />
+                  <div className="absolute left-0 top-2 bottom-2 w-[4px] rounded-r bg-[#0A66C2]" />
                 )}
                 {active && isCollapsed && (
-                  <div className="absolute left-2 top-3 bottom-3 w-[4px] bg-neutral-950 dark:bg-white" />
+                  <div className="absolute left-2 top-3 bottom-3 w-[4px] rounded-r bg-[#0A66C2]" />
                 )}
 
                 <Icon
                   size={20}
-                  className="shrink-0 transition-none"
+                  className={`shrink-0 transition-none ${active ? "text-[#0A66C2]" : ""}`}
                   strokeWidth={active ? 2 : iconStroke}
                 />
                 {!isCollapsed && <span className="text-[14px] tracking-tight truncate">{link.label}</span>}
@@ -124,7 +124,7 @@ export function AppSidebar() {
         </nav>
 
         {/* Bottom Actions */}
-        <div className="py-4 border-t border-neutral-200 dark:border-neutral-800 space-y-1">
+        <div className="py-4 border-t border-neutral-200 dark:border-neutral-900 space-y-1">
           <Link
             href="/settings"
             className={`flex items-center gap-3 py-2.5 px-5 text-neutral-500 dark:text-neutral-400 hover:text-neutral-900 dark:hover:text-white transition-none group relative ${isCollapsed ? "justify-center px-0" : ""}`}
@@ -166,7 +166,7 @@ export function AppSidebar() {
               <Link
                 href="/auth/sign-in"
                 onClick={handleLinkClick}
-                className={`flex items-center justify-center py-2.5 bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 text-xs font-bold border border-neutral-950 dark:border-white transition-none ${isCollapsed ? "w-10 h-10 px-0" : "w-full"}`}
+                className={`flex items-center justify-center py-2.5 bg-[#0A66C2] hover:bg-[#004182] dark:bg-white text-white dark:text-neutral-950 text-xs font-semibold border border-[#0A66C2] dark:border-white shadow-sm transition-none ${isCollapsed ? "w-10 h-10 px-0" : "w-full"}`}
               >
                 {isCollapsed ? <LogIn size={18} /> : <span>Se connecter</span>}
               </Link>

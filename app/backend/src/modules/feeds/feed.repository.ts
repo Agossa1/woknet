@@ -6,6 +6,7 @@ import { socketService } from "../../infra/realtime/socket.service";
 
 export class FeedRepository {
     private readonly CACHE_TTL = 15; // 15 secondes pour plus de fluidité et de fraîcheur
+    private readonly CACHE_VERSION = 'v2'; // incrémenter quand on ajoute des champs au feed (ex: industry_label)
 
    constructor(
     private readonly db = new PostgresDatabase(),
@@ -18,7 +19,7 @@ export class FeedRepository {
      * Clé de cache unique par utilisateur et pagination
      */
     private getCacheKey(userId: string, limit: number, offset: number): string {
-        return `feed:${userId}:lim${limit}:off${offset}`;
+        return `feed:${this.CACHE_VERSION}:${userId}:lim${limit}:off${offset}`;
     }
 
     /**
@@ -28,7 +29,7 @@ export class FeedRepository {
     async invalidateUserFeed(userId: string): Promise<void> {
         if (!this.redis) return;
         try {
-            const pattern = `feed:${userId}:*`;
+            const pattern = `feed:*${userId}*`;
             const keys: string[] = [];
             // Batching : On regroupe les suppressions pour limiter les aller-retours réseau
             for await (const key of this.redis.scanIterator({ MATCH: pattern })) {
@@ -56,9 +57,12 @@ export class FeedRepository {
             if (this.redis) {
                 const cached = await this.redis.get(cacheKey);
                 if (cached) {
+                    this.logger.instance.debug(`[FeedRepository] Cache hit for ${cacheKey}`);
                     return JSON.parse(cached);
                 }
             }
+
+            this.logger.instance.info(`[FeedRepository] Fetching feed for user ${userId}, limit=${limit}, offset=${offset}`);
 
             const query = `
                 SELECT 
@@ -69,15 +73,19 @@ export class FeedRepository {
                     f.base_score,
                     f.created_at as feed_created_at,
                     COALESCE(c.slug, pr.username) as username,
-                    COALESCE(c.name, pr.display_name) as display_name,
+                    COALESCE(c.name, pr.display_name, u.full_name) as display_name,
                     COALESCE(c.logo_url, pr.avatar_url) as avatar_url,
                     COALESCE(c.name, u.full_name) as full_name,
-                    COALESCE(c.description, u.headline) as headline,
+                    COALESCE(c.description, u.headline, pr.bio) as headline,
+                    i.label as industry_label,
                     c.company_type, c.company_size,
-                    pr.reputation_score as author_reputation_score,
-                    pr.is_verified as author_is_verified,
-                    pr.follower_count as author_follower_count,
-                    pr.skills as author_skills,
+                    COALESCE(pr.reputation_score, 0) as author_reputation_score,
+                    COALESCE(pr.is_verified, false) as author_is_verified,
+                    COALESCE(pr.follower_count, 0) as author_follower_count,
+                    CASE 
+                        WHEN pr.skills IS NULL THEN '[]'::json
+                        ELSE array_to_json(pr.skills)::json
+                    END as author_skills,
                     EXISTS(
                         SELECT 1 FROM likes l 
                         WHERE l.post_id = p.id AND l.profile_id = $1
@@ -99,9 +107,11 @@ export class FeedRepository {
                 FROM global_power_feed f
                 JOIN posts p ON p.id = f.item_id
                 LEFT JOIN companies c ON p.company_id = c.id
-                JOIN profiles pr ON p.profile_id = pr.user_id
-                JOIN users u ON pr.user_id = u.id
+                LEFT JOIN profiles pr ON p.profile_id = pr.user_id
+                LEFT JOIN users u ON p.profile_id = u.id
+                LEFT JOIN industries i ON u.industry_id = i.id
                 WHERE f.content_type = 'POST'
+                AND p.profile_id IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM user_signals us 
                     WHERE us.user_id = $1 AND us.item_id = f.item_id AND us.action_type = 'DISMISS'
@@ -111,15 +121,96 @@ export class FeedRepository {
             `;
 
             const results = await this.db.query(query, [userId, limit, offset]);
+            
+            this.logger.instance.info(`[FeedRepository] Query returned ${results?.length || 0} items`);
 
-            if (this.redis) {
+            if (this.redis && results) {
                 await this.redis.setEx(cacheKey, this.CACHE_TTL, JSON.stringify(results));
             }
 
-            return results;
-        } catch (error) {
-            this.logger.instance.error(`[FeedRepository] Error fetching feed: ${error}`);
+            return results || [];
+        } catch (error: any) {
+            this.logger.instance.error(`[FeedRepository] Error fetching feed for user ${userId}:`, {
+                error: error.message,
+                stack: error.stack,
+                code: error.code
+            });
+            
+            // Si la vue n'existe pas, essayer une requête de fallback directe sur posts
+            if (error.message?.includes('global_power_feed') || error.code === '42P01') {
+                this.logger.instance.warn(`[FeedRepository] global_power_feed view may not exist, trying fallback query`);
+                return this.getMainFeedFallback(userId, limit, offset);
+            }
+            
             throw error;
+        }
+    }
+
+    /**
+     * Fallback si la vue global_power_feed n'existe pas
+     */
+    private async getMainFeedFallback(userId: string, limit: number, offset: number) {
+        try {
+            const query = `
+                SELECT 
+                    p.*,
+                    p.id as item_id,
+                    p.profile_id as author_id,
+                    'POST' as content_type,
+                    COALESCE(p.hot_score, (p.likes_count * 2 + p.comments_count * 5)::float, 0.0) as base_score,
+                    p.created_at as feed_created_at,
+                    COALESCE(c.slug, pr.username) as username,
+                    COALESCE(c.name, pr.display_name, u.full_name) as display_name,
+                    COALESCE(c.logo_url, pr.avatar_url) as avatar_url,
+                    COALESCE(c.name, u.full_name) as full_name,
+                    COALESCE(c.description, u.headline, pr.bio) as headline,
+                    i.label as industry_label,
+                    c.company_type, c.company_size,
+                    COALESCE(pr.reputation_score, 0) as author_reputation_score,
+                    COALESCE(pr.is_verified, false) as author_is_verified,
+                    COALESCE(pr.follower_count, 0) as author_follower_count,
+                    CASE 
+                        WHEN pr.skills IS NULL THEN '[]'::json
+                        ELSE array_to_json(pr.skills)::json
+                    END as author_skills,
+                    EXISTS(
+                        SELECT 1 FROM likes l 
+                        WHERE l.post_id = p.id AND l.profile_id = $1
+                    ) as "isLiked",
+                    (
+                        SELECT reaction_type 
+                        FROM likes l 
+                        WHERE l.post_id = p.id AND l.profile_id = $1
+                    ) as "reactionType",
+                    (
+                        SELECT COALESCE(array_to_json(array_agg(DISTINCT reaction_type)), '[]'::json) 
+                        FROM likes 
+                        WHERE post_id = p.id
+                    ) as "reactionTypes",
+                    EXISTS(
+                        SELECT 1 FROM saved_posts sp 
+                        WHERE sp.post_id = p.id AND sp.profile_id = $1
+                    ) as "isSaved"
+                FROM posts p
+                LEFT JOIN companies c ON p.company_id = c.id
+                LEFT JOIN profiles pr ON p.profile_id = pr.user_id
+                LEFT JOIN users u ON p.profile_id = u.id
+                LEFT JOIN industries i ON u.industry_id = i.id
+                WHERE p.profile_id IS NOT NULL
+                AND NOT EXISTS (
+                    SELECT 1 FROM user_signals us 
+                    WHERE us.user_id = $1 AND us.item_id = p.id AND us.action_type = 'DISMISS'
+                )
+                ORDER BY base_score DESC, p.created_at DESC
+                LIMIT $2 OFFSET $3;
+            `;
+
+            const results = await this.db.query(query, [userId, limit, offset]);
+            this.logger.instance.info(`[FeedRepository] Fallback query returned ${results?.length || 0} items`);
+            return results || [];
+        } catch (fallbackError: any) {
+            this.logger.instance.error(`[FeedRepository] Fallback query also failed:`, fallbackError);
+            return [];
         }
     }
 
@@ -141,10 +232,11 @@ export class FeedRepository {
                 SELECT 
                     p.*,
                     COALESCE(c.slug, pr.username) AS username,
-                    COALESCE(c.name, pr.display_name) AS display_name,
+                    COALESCE(c.name, pr.display_name, u.full_name) AS display_name,
                     COALESCE(c.logo_url, pr.avatar_url) AS avatar_url,
                     COALESCE(c.name, u.full_name) AS full_name,
-                    COALESCE(c.description, u.headline) AS headline,
+                    COALESCE(c.description, u.headline, pr.bio) AS headline,
+                    i.label AS industry_label,
                     c.company_type, 
                     c.company_size,
                     -- Flags d'engagement pour l'utilisateur courant
@@ -167,12 +259,14 @@ export class FeedRepository {
                         WHERE sp.post_id = p.id AND sp.profile_id = $1
                     ) AS "isSaved"
                 FROM posts p
-                JOIN profiles pr ON p.profile_id = pr.user_id
-                JOIN users u ON pr.user_id = u.id
+                LEFT JOIN profiles pr ON p.profile_id = pr.user_id
+                LEFT JOIN users u ON p.profile_id = u.id
                 LEFT JOIN companies c ON p.company_id = c.id
+                LEFT JOIN industries i ON u.industry_id = i.id
                 JOIN me ON u.industry_id = me.industry_id
                 WHERE 
                     p.visibility = 'PUBLIC'
+                    AND p.profile_id IS NOT NULL
                 ORDER BY 
                     p.hot_score DESC,
                     p.created_at DESC
@@ -210,8 +304,8 @@ export class FeedRepository {
 
             // Clé de cache spécifique au cursor
             const cacheKey = cursor
-                ? `feed:${userId}:cursor:${cursor.timestamp}:${cursor.itemId}`
-                : `feed:${userId}:cursor:initial`;
+                ? `feed:${this.CACHE_VERSION}:${userId}:cursor:${cursor.timestamp}:${cursor.itemId}`
+                : `feed:${this.CACHE_VERSION}:${userId}:cursor:initial`;
 
             if (this.redis) {
                 const cached = await this.redis.get(cacheKey);
@@ -233,15 +327,19 @@ export class FeedRepository {
                     f.base_score,
                     f.created_at as feed_created_at,
                     COALESCE(c.slug, pr.username) as username,
-                    COALESCE(c.name, pr.display_name) as display_name,
+                    COALESCE(c.name, pr.display_name, u.full_name) as display_name,
                     COALESCE(c.logo_url, pr.avatar_url) as avatar_url,
                     COALESCE(c.name, u.full_name) as full_name,
-                    COALESCE(c.description, u.headline) as headline,
+                    COALESCE(c.description, u.headline, pr.bio) as headline,
+                    i.label as industry_label,
                     c.company_type, c.company_size,
-                    pr.reputation_score as author_reputation_score,
-                    pr.is_verified as author_is_verified,
-                    pr.follower_count as author_follower_count,
-                    pr.skills as author_skills,
+                    COALESCE(pr.reputation_score, 0) as author_reputation_score,
+                    COALESCE(pr.is_verified, false) as author_is_verified,
+                    COALESCE(pr.follower_count, 0) as author_follower_count,
+                    CASE 
+                        WHEN pr.skills IS NULL THEN '[]'::json
+                        ELSE array_to_json(pr.skills)::json
+                    END as author_skills,
                     EXISTS(
                         SELECT 1 FROM likes l 
                         WHERE l.post_id = p.id AND l.profile_id = $1
@@ -263,9 +361,11 @@ export class FeedRepository {
                 FROM global_power_feed f
                 JOIN posts p ON p.id = f.item_id
                 LEFT JOIN companies c ON p.company_id = c.id
-                JOIN profiles pr ON p.profile_id = pr.user_id
-                JOIN users u ON pr.user_id = u.id
+                LEFT JOIN profiles pr ON p.profile_id = pr.user_id
+                LEFT JOIN users u ON p.profile_id = u.id
+                LEFT JOIN industries i ON u.industry_id = i.id
                 WHERE f.content_type = 'POST'
+                AND p.profile_id IS NOT NULL
                 AND NOT EXISTS (
                     SELECT 1 FROM user_signals us 
                     WHERE us.user_id = $1 AND us.item_id = f.item_id AND us.action_type = 'DISMISS'

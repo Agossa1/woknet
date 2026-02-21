@@ -23,6 +23,7 @@ export interface User {
 
     roles: Role[],
     has_onboarded: boolean,
+    is_instructor: boolean,
     headline?: string,
     industry_id?: string,
     city?: string,

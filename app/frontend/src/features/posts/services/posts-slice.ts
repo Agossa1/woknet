@@ -16,6 +16,8 @@ import { RootState } from "@/src/store/store";
 
 const initialState: PostsState = {
     feed: [],
+    feedPage: 1,
+    hasMoreFeed: true,
     profilePosts: {},
     companyPosts: {},
     savedPosts: [],
@@ -103,22 +105,23 @@ const postsSlice = createSlice({
         });
         builder.addCase(fetchPowerFeedThunk.fulfilled, (state, action: PayloadAction<any>) => {
             state.loading = false;
+            state.error = null;
 
             const payload = action.payload as any;
             const page = payload?.page ?? 1;
-            const rawItems = payload?.items ?? [];
+            const rawItems = Array.isArray(payload?.items) ? payload.items : [];
 
-            // Si le backend renvoie une liste vide pour la page 1,
-            // on conserve le feed existant pour éviter l'effet "tout disparaît".
-            if ((page === 1 || !page) && (!rawItems || rawItems.length === 0)) {
+            state.feedPage = page;
+            state.hasMoreFeed = payload?.hasMore ?? (rawItems.length > 0);
+
+            // Page 1 vide : on met à jour le feed à [] pour refléter l'état réel (éviter affichage stale).
+            if ((page === 1 || !page) && rawItems.length === 0) {
+                state.feed = [];
                 return;
             }
 
-            const items = (rawItems as any[]).filter((p: any) => {
-                if (!p || !p.content_type) return true;
-                if (page === 1) return true;
-                return p.content_type !== "RECOMMENDATION_PROFILES" && p.content_type !== "RECOMMENDATION_JOBS";
-            });
+            // On ne filtre PLUS les recommandations !
+            const items = (rawItems as any[]);
 
             if (page && page > 1 && state.feed && state.feed.length > 0) {
                 const existingIds = new Set(
@@ -136,10 +139,8 @@ const postsSlice = createSlice({
                 state.feed = [...state.feed, ...newItems];
             } else {
                 const newItems = items as any[];
-                const existing = (state.feed || []).filter((p: any) => {
-                    if (!p || !p.content_type) return true;
-                    return p.content_type !== "RECOMMENDATION_PROFILES" && p.content_type !== "RECOMMENDATION_JOBS";
-                });
+                // On garde les recommandations existantes si elles sont là, sinon on les écrase
+                const existing = (state.feed || []);
 
                 if (existing.length === 0) {
                     state.feed = newItems;

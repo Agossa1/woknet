@@ -6,7 +6,9 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "migrate": "ts-node src/infra/scripts/migration.ts",
-    "user-migrate": "ts-node src/infra/scripts/seed-new-users.ts"
+    "user-migrate": "ts-node src/infra/scripts/seed-new-users.ts",
+    "check-feed": "ts-node src/infra/scripts/check-feed-view.ts",
+    "debug-feed": "ts-node src/infra/scripts/debug-feed-query.ts"
   },
   "author": "",
   "license": "ISC",

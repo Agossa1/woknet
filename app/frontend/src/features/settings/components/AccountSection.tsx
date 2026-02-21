@@ -1,133 +1,67 @@
 'use client';
 
 import { User } from "@/src/features/auth/services/authTypes";
-import { Mail, Lock, UserX, Shield, CheckCircle2 } from "lucide-react";
+import { Mail, Lock, UserX } from "lucide-react";
 import { useState } from "react";
-import { TwoFactorModal } from "./TwoFactorModal";
-import { authServices } from "@/src/features/auth/services/authApi";
-import { toast } from "sonner";
 
 interface AccountSectionProps {
     user: User | null;
 }
 
+import { SettingsItem } from "./SettingsItem";
+
 export const AccountSection = ({ user: initialUser }: AccountSectionProps) => {
-    const [user, setUser] = useState(initialUser);
-    const [is2FAModalOpen, setIs2FAModalOpen] = useState(false);
-    const [loading, setLoading] = useState(false);
-
-    const handleDisable2FA = async () => {
-        if (!window.confirm("Êtes-vous sûr de vouloir désactiver la double authentification ?")) return;
-
-        setLoading(true);
-        try {
-            await authServices.disable2FA({});
-            setUser(prev => prev ? { ...prev, two_factor_enabled: false } : null);
-            toast.success("Double authentification désactivée");
-        } catch (error: any) {
-            toast.error(error.message || "Erreur lors de la désactivation");
-        } finally {
-            setLoading(false);
-        }
-    };
+    const [user] = useState(initialUser);
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-12 animate-in fade-in slide-in-from-bottom-2 duration-500">
+            {/* Section Header */}
             <div>
-                <h2 className="text-[20px] font-black tracking-tight text-neutral-950 dark:text-white">Compte & Accès</h2>
-                <p className="text-neutral-400 text-[13px] font-medium mt-1">Gérez vos identifiants et la sécurité de vos données.</p>
+                <h2 className="text-[22px] font-bold tracking-tight text-neutral-900 dark:text-white font-inter">Compte & Accès</h2>
+                <p className="text-neutral-500 text-[13px] font-medium mt-1.5 leading-relaxed max-w-md">
+                    Gérez les informations essentielles de votre compte WorkNet et vos moyens de connexion.
+                </p>
             </div>
 
-            <div className="space-y-4">
-                {/* Email Change */}
-                <div className="group bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl p-5 hover:border-neutral-200 dark:hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="text-neutral-400 group-hover:text-neutral-950 dark:group-hover:text-white transition-colors">
-                                <Mail size={18} />
-                            </div>
-                            <div className="space-y-0.5">
-                                <h3 className="font-bold text-[14px] text-neutral-900 dark:text-neutral-100">Adresse email</h3>
-                                <p className="text-neutral-400 text-[13px]">{user?.email || "Non renseignée"}</p>
-                            </div>
-                        </div>
-                        <button className="px-4 py-1.5 border border-neutral-200 dark:border-neutral-800 rounded text-[12px] font-bold hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
-                            Changer
-                        </button>
-                    </div>
-                </div>
-
-                {/* Password Change */}
-                <div className="group bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl p-5 hover:border-neutral-200 dark:hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className="text-neutral-400 group-hover:text-neutral-950 dark:group-hover:text-white transition-colors">
-                                <Lock size={18} />
-                            </div>
-                            <div className="space-y-0.5">
-                                <h3 className="font-bold text-[14px] text-neutral-900 dark:text-neutral-100">Mot de passe</h3>
-                                <p className="text-neutral-400 text-[13px]">Protection active</p>
-                            </div>
-                        </div>
-                        <button className="px-4 py-1.5 border border-neutral-200 dark:border-neutral-800 rounded text-[12px] font-bold hover:bg-neutral-50 dark:hover:bg-neutral-800 transition-colors">
+            <div className="space-y-2">
+                <SettingsItem
+                    icon={Mail}
+                    title="Adresse email"
+                    description={user?.email || "Non renseignée"}
+                    subDescription="Utilisée pour la connexion et les notifications système importantes."
+                    action={
+                        <button className="text-[12px] font-bold text-[#0A66C2] hover:underline px-4 py-2 rounded-lg hover:bg-[#0A66C2]/5 transition-all">
                             Modifier
                         </button>
-                    </div>
-                </div>
+                    }
+                />
 
-                {/* 2FA */}
-                <div className="group bg-white dark:bg-neutral-900 border border-neutral-100 dark:border-neutral-800 rounded-xl p-5 hover:border-neutral-200 dark:hover:border-neutral-700 transition-all">
-                    <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                            <div className={`${user?.two_factor_enabled ? 'text-green-500' : 'text-neutral-400'} group-hover:opacity-80 transition-opacity`}>
-                                <Shield size={18} />
-                            </div>
-                            <div className="space-y-0.5">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-bold text-[14px] text-neutral-900 dark:text-neutral-100">Double authentification</h3>
-                                    {user?.two_factor_enabled && (
-                                        <span className="flex items-center gap-1 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                                            Activé
-                                        </span>
-                                    )}
-                                </div>
-                                <p className="text-neutral-400 text-[13px]">Sécurité supplémentaire via application TOTP</p>
-                            </div>
-                        </div>
-                        {user?.two_factor_enabled ? (
-                            <button
-                                onClick={handleDisable2FA}
-                                disabled={loading}
-                                className="px-4 py-1.5 border border-red-100 dark:border-red-900/20 text-red-500 rounded text-[12px] font-bold hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors disabled:opacity-50"
-                            >
-                                Désactiver
-                            </button>
-                        ) : (
-                            <button
-                                onClick={() => setIs2FAModalOpen(true)}
-                                className="px-4 py-1.5 bg-neutral-950 dark:bg-white text-white dark:text-neutral-950 rounded text-[12px] font-bold hover:opacity-90 transition-opacity"
-                            >
-                                Activer
-                            </button>
-                        )}
-                    </div>
-                </div>
+                <SettingsItem
+                    icon={Lock}
+                    title="Mot de passe"
+                    description="••••••••••••"
+                    subDescription="Nous vous recommandons d'utiliser un mot de passe unique et fort."
+                    action={
+                        <button className="text-[12px] font-bold text-[#0A66C2] hover:underline px-4 py-2 rounded-lg hover:bg-[#0A66C2]/5 transition-all">
+                            Modifier
+                        </button>
+                    }
+                />
 
-                <div className="pt-6">
-                    <button className="flex items-center gap-2 text-red-500/70 hover:text-red-600 text-[12px] font-bold transition-colors tracking-tight">
-                        <UserX size={16} />
-                        Désactiver temporairement le compte
-                    </button>
+                {/* Danger Zone */}
+                <div className="pt-10">
+                    <div className="p-6 rounded-2xl border border-red-100 dark:border-red-900/20 bg-red-50/30 dark:bg-red-900/5">
+                        <h4 className="text-[14px] font-bold text-red-600 dark:text-red-400 mb-2 font-inter">Zone de danger</h4>
+                        <p className="text-[12px] text-red-500/70 font-medium mb-4 leading-relaxed max-w-md">
+                            La désactivation de votre compte est temporaire. Vous pourrez le réactiver à tout moment en vous reconnectant. Toutes vos données seront conservées.
+                        </p>
+                        <button className="flex items-center gap-2 text-red-600 hover:text-red-700 text-[12px] font-bold transition-all px-4 py-2 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20">
+                            <UserX size={15} strokeWidth={2} />
+                            Désactiver le compte
+                        </button>
+                    </div>
                 </div>
             </div>
-
-            <TwoFactorModal
-                isOpen={is2FAModalOpen}
-                onClose={() => setIs2FAModalOpen(false)}
-                onEnabled={() => {
-                    setUser(prev => prev ? { ...prev, two_factor_enabled: true } : null);
-                }}
-            />
         </div>
     );
 };

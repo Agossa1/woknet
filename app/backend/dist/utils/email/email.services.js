@@ -13,7 +13,7 @@ class YumiMailService {
      * Centralise la logique d'envoi avec une gestion robuste des erreurs
      */
     async process(to, content) {
-        const from = process.env.SMTP_FROM || '"Yumi Team" <noreply@yumi.com>';
+        const from = process.env.EMAIL_FROM || '"WorkNet Team" <noreply@yumi.com>';
         try {
             // 1. Envoi
             const { messageId } = await this.provider.send({

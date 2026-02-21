@@ -8,6 +8,7 @@ const auth_types_1 = require("./auth.types");
 const custom_errors_1 = require("../../errors/custom-errors");
 const geo_service_1 = __importDefault(require("../../infra/geo/geo.service"));
 const node_crypto_1 = require("node:crypto");
+const otplib_1 = require("otplib");
 class AuthServices {
     constructor(authRepository, redis, token, logger, passwordService, emailServices) {
         this.authRepository = authRepository;
@@ -44,19 +45,17 @@ class AuthServices {
         }
     }
     getPrimaryRole(roles) {
-        if (!roles || roles.length === 0)
-            return auth_types_1.Role.USER;
-        const priority = [auth_types_1.Role.SUPERADMIN, auth_types_1.Role.ADMIN, , auth_types_1.Role.MODERATEUR, auth_types_1.Role.ASSISTANT, auth_types_1.Role.USER];
-        for (const p of priority) {
-            if (roles.includes(p))
-                return p;
+        const priority = [auth_types_1.Role.SUPERADMIN, auth_types_1.Role.ADMIN, auth_types_1.Role.MODERATEUR, auth_types_1.Role.ASSISTANT, auth_types_1.Role.USER];
+        for (const role of priority) {
+            if (roles && roles.includes(role))
+                return role;
         }
-        return roles[0];
+        return auth_types_1.Role.USER;
     }
     async createUser(data) {
         try {
             // Normalisation de l'email et du téléphone pour la recherche
-            const email = data.email.toLowerCase();
+            const email = data.email?.toLowerCase();
             const phone = data.phone_number?.trim() || null;
             // Validation de la présence d'un email ou d'un numéro de téléphone
             if (!email && !phone) {
@@ -70,24 +69,26 @@ class AuthServices {
             }
             // Hachage du mot de passe
             const passwordHash = await this.passwordService.hashPassword(data.password);
-            const otpCode = Math.floor(100000 + Math.random() * 900000).toString(); // Génère un OTP à 6 chiffres 
+            const otpCode = (0, node_crypto_1.randomInt)(100000, 999999).toString(); // Génère un OTP à 6 chiffres sécurisé
             // Création de l'utilisateur
             const newUser = await this.authRepository.createUser({
                 ...data,
                 email,
                 phone_number: phone,
                 password_hash: passwordHash,
-                role: [auth_types_1.Role.USER],
+                roles: [auth_types_1.Role.USER],
                 is_verified: false,
                 is_active: true,
                 otp_code: otpCode,
                 otp_expires_at: new Date(Date.now() + 15 * 60 * 1000), // OTP valide pendant 15 minutes
-                ip_address: data.ip_address,
-                user_agent: data.user_agent
+                registration_ip: data.ip_address,
+                last_login_ip: data.ip_address
             });
-            this.dispatchOtp(newUser, otpCode);
+            if (newUser) {
+                this.dispatchOtp(newUser, otpCode);
+            }
             // Sécurité : on masque les données sensibles au retour
-            const { password_hash, otp_code, ...publicUser } = newUser;
+            const { password_hash, otp_code, ...publicUser } = (newUser || {});
             // Retourner les données publiques de l'utilisateur
             return publicUser;
         }
@@ -102,7 +103,7 @@ class AuthServices {
     async loginUser(data) {
         try {
             // Normalisation de l'email et du téléphone pour la recherche
-            const email = data.email.toLocaleLowerCase();
+            const email = data.email?.toLowerCase();
             const phone = data.phone_number?.trim() || null;
             // Validation de la présence d'un email ou d'un numéro de téléphone
             if (!email && !phone) {
@@ -131,24 +132,33 @@ class AuthServices {
                 full_name: user.full_name,
                 email: user.email,
                 phone_number: user.phone_number,
-                role: user.role
+                role: this.getPrimaryRole(user.roles)
             };
-            // Générer les tokens d'accès et de rafraîchissement
-            const accessToken = this.token.generateAccessToken(tokenPayload);
-            const refreshToken = this.token.generateRefreshToken({ id: user.id });
             // Metadata de connexion (IP, User Agent, Geo, etc.) à implémenter ici
             const metadata = data.ip_address && data.user_agent
                 ? await geo_service_1.default.getConnectionMetadata(data.ip_address, data.user_agent)
                 : undefined;
             // Mettre à jour la dernière connexion de l'utilisateur avec les métadonnées
             await this.authRepository.updateLastLogin(user.id, data.ip_address, metadata);
+            // Vérifier si la 2FA est activée
+            if (user.two_factor_enabled) {
+                return {
+                    requires2FA: true,
+                    userId: user.id,
+                    email: user.email
+                };
+            }
+            // Générer les tokens d'accès et de rafraîchissement
+            const accessToken = this.token.generateAccessToken(tokenPayload);
+            const refreshToken = this.token.generateRefreshToken({ id: user.id });
             // Sécurité : on masque les données sensibles au retour
-            const { password_hash, otp_code, ...publicUser } = user;
+            const { password_hash, otp_code, two_factor_secret, two_factor_recovery_codes, ...publicUser } = user;
             // Retourner les données publiques de l'utilisateur avec les tokens d'accès et de rafraîchissement
             return {
                 ...publicUser,
-                access_token: accessToken,
-                refresh_token: refreshToken
+                accessToken,
+                refreshToken,
+                requires2FA: false
             };
         }
         catch (error) {
@@ -161,7 +171,7 @@ class AuthServices {
     // Logout logic to be implemented here
     async logoutUser(userId, accessToken) {
         try {
-            await this.authRepository.updateRefreshToken(userId, null);
+            await this.authRepository.updateRefreshToken(userId, "");
             const decoded = this.token.decode(accessToken);
             const timeLeft = decoded.exp - Math.floor(Date.now() / 1000);
             if (timeLeft > 0) {
@@ -179,12 +189,13 @@ class AuthServices {
     // Logique de refresh token à implémenter ici
     async refreshToken(refreshToken) {
         try {
-            const decode = this.token.verifyAccessToken(refreshToken);
+            const decode = this.token.verifyRefreshToken(refreshToken);
             if (!decode) {
                 this.logger.instance.warn(`[AuthServices] Invalid refresh token attempt`);
                 throw new custom_errors_1.BadRequestError("Invalid refresh token");
             }
-            const user = await this.authRepository.findById(decode.sub);
+            const userId = decode.sub || decode.id;
+            const user = await this.authRepository.findById(userId);
             if (!user || !user.is_active) {
                 throw new custom_errors_1.UnauthorizedException("Session expired or user not found");
             }
@@ -194,7 +205,7 @@ class AuthServices {
                 email: user.email,
                 full_name: user.full_name,
                 phone_number: user.phone_number,
-                role: this.getPrimaryRole(user.role)
+                role: this.getPrimaryRole(user.roles)
             };
             // Générer de nouveaux tokens d'accès et de rafraîchissement
             const newAccessToken = this.token.generateAccessToken(tokenPayload);
@@ -207,6 +218,10 @@ class AuthServices {
             };
         }
         catch (error) {
+            if (error.statusCode) {
+                throw error;
+            }
+            this.logger.instance.error(`[AuthServices] Refresh token failed: ${error.message}`, error);
             throw new custom_errors_1.InternalServerError("Failed to refresh token");
         }
     }
@@ -214,7 +229,7 @@ class AuthServices {
     async verifyAccount(dto) {
         try {
             // Normalisation de l'email et du téléphone pour la recherche
-            const email = dto.email.toLocaleLowerCase();
+            const email = dto.email?.toLowerCase();
             const phone = dto.phone_number?.trim() || null;
             // Validation de la présence d'un email ou d'un numéro de téléphone
             if (!email && !phone) {
@@ -227,14 +242,17 @@ class AuthServices {
                 throw new custom_errors_1.BadRequestError("Invalid credentials");
             }
             if (user.is_verified) {
+                this.logger.instance.warn(`[AuthServices] Verification attempt for already verified account: ${email || phone}`);
                 throw new custom_errors_1.BadRequestError("Account is already verified");
             }
             // Verification de l'OTP
             if (user.otp_code !== dto.otp_code) {
+                this.logger.instance.warn(`[AuthServices] Invalid OTP code for ${email || phone}. Expected: ${user.otp_code}, Got: ${dto.otp_code}`);
                 throw new custom_errors_1.BadRequestError("Invalid OTP code");
             }
             // Vérifier si l'OTP est expiré
             if (new Date() > new Date(user.otp_expires_at)) {
+                this.logger.instance.warn(`[AuthServices] OTP expired for ${email || phone}. Expired at: ${user.otp_expires_at}`);
                 throw new custom_errors_1.BadRequestError("OTP code has expired");
             }
             // Mettre à jour l'utilisateur pour marquer le compte comme vérifié
@@ -245,15 +263,15 @@ class AuthServices {
                 verified_at: new Date()
             });
             // Générer des tokens apres vérification réussie
-            const tokenPaylaod = {
+            const tokenPayload = {
                 id: user.id,
                 email: user.email,
                 full_name: user.full_name,
                 phone_number: user.phone_number,
-                role: this.getPrimaryRole(user.role)
+                role: this.getPrimaryRole(user.roles)
             };
             // Générer les tokens d'accès et de rafraîchissement
-            const accessToken = this.token.generateAccessToken(tokenPaylaod);
+            const accessToken = this.token.generateAccessToken(tokenPayload);
             const refreshToken = this.token.generateRefreshToken({ id: user.id });
             // Envoie de l'email de bienvenue après vérification réussie
             if (user.email) {
@@ -263,8 +281,8 @@ class AuthServices {
             // Retourner les données publiques de l'utilisateur avec les tokens d'accès et de rafraîchissement
             return {
                 ...sufeUser,
-                access_token: accessToken,
-                refresh_token: refreshToken
+                accessToken,
+                refreshToken
             };
         }
         catch (error) {
@@ -276,8 +294,8 @@ class AuthServices {
     // Resend OTP logic to be implemented here
     async resendOtp(identifier) {
         try {
-            const email = identifier.toLocaleLowerCase();
-            const phone_number = identifier?.trim() || null;
+            const email = identifier?.includes('@') ? identifier.toLowerCase() : null;
+            const phone_number = !identifier?.includes('@') ? identifier?.trim() : null;
             if (!email && !phone_number) {
                 throw new custom_errors_1.BadRequestError("Email or phone number is required");
             }
@@ -297,8 +315,8 @@ class AuthServices {
             if (secondsSinceCreation < 60) {
                 throw new custom_errors_1.BadRequestError("OTP was recently sent. Please wait before requesting a new one.");
             }
-            // Générer un nouveau code OTP
-            const newOtpCode = Math.floor(100000 + Math.random() * 900000).toString();
+            // Générer un nouveau code OTP sécurisé
+            const newOtpCode = (0, node_crypto_1.randomInt)(100000, 999999).toString();
             await this.authRepository.updateOtp(user.id, {
                 otp_code: newOtpCode,
                 otp_expires_at: new Date(Date.now() + 15 * 60 * 1000) // OTP valide pendant 15 minutes
@@ -315,8 +333,8 @@ class AuthServices {
     // Forgot password logic to be implemented here
     async forgotPassword(identifier) {
         try {
-            const email = identifier.toLocaleLowerCase();
-            const phone_number = identifier?.trim() || null;
+            const email = identifier?.includes('@') ? identifier.toLowerCase() : null;
+            const phone_number = !identifier?.includes('@') ? identifier?.trim() : null;
             if (!email && !phone_number) {
                 throw new custom_errors_1.BadRequestError("Email or phone number is required");
             }
@@ -325,9 +343,11 @@ class AuthServices {
                 this.logger.instance.warn(`[AuthServices] Forgot password attempt with non-existent identifier: ${email || phone_number}`);
                 throw new custom_errors_1.BadRequestError("Invalid credentials");
             }
-            const resetToken = (0, node_crypto_1.randomInt)(100000, 999999).toString(); // Génère un token de réinitialisation à 6 chiffres
-            await this.authRepository.saveResetToken(user.email, user.full_name, resetToken);
-            await this.emailServices.sendPasswordResetEmail(user.email, user.full_name, resetToken);
+            const resetToken = (0, node_crypto_1.randomInt)(100000, 999999).toString(); // Génère un token de réinitialisation sécurisé
+            await this.authRepository.saveResetToken(user.email || user.id, resetToken);
+            if (user.email) {
+                await this.emailServices.sendPasswordResetEmail(user.email, user.full_name, resetToken);
+            }
         }
         catch (error) {
             if (error.statusCode)
@@ -338,8 +358,8 @@ class AuthServices {
     // Reset password logic to be implemented here
     async resetPassword(identifier, resetToken, newPassword) {
         try {
-            const email = identifier.toLocaleLowerCase();
-            const phone_number = identifier?.trim() || null;
+            const email = identifier?.includes('@') ? identifier.toLowerCase() : null;
+            const phone_number = !identifier?.includes('@') ? identifier?.trim() : null;
             if (!email && !phone_number) {
                 throw new custom_errors_1.BadRequestError("Email or phone number is required");
             }
@@ -349,7 +369,7 @@ class AuthServices {
                 throw new custom_errors_1.BadRequestError("Invalid credentials");
             }
             // Verifier le token de réinitialisation
-            const storedToken = await this.authRepository.getResetToken(user.email);
+            const storedToken = await this.authRepository.getResetToken(user.email || user.id);
             if (storedToken !== resetToken) {
                 throw new custom_errors_1.BadRequestError("Invalid or expired reset token");
             }
@@ -357,7 +377,7 @@ class AuthServices {
             const passwordHash = await this.passwordService.hashPassword(newPassword);
             await this.authRepository.updatePassword(user.id, passwordHash);
             // Invalider le token de réinitialisation après utilisation
-            await this.authRepository.revoqueRefreshToken(user.email);
+            await this.authRepository.revoqueRefreshToken(user.email || user.id);
         }
         catch (error) {
             if (error.statusCode)
@@ -368,8 +388,8 @@ class AuthServices {
     // Verifier l'OTP pour la réinitialisation du mot de passe
     async verifyResetOpt(identfier, token) {
         try {
-            const email = identfier.toLocaleLowerCase();
-            const phone_number = identfier?.trim() || null;
+            const email = identfier?.includes('@') ? identfier.toLowerCase() : null;
+            const phone_number = !identfier?.includes('@') ? identfier?.trim() : null;
             if (!email && !phone_number) {
                 throw new custom_errors_1.BadRequestError("Email or phone number is required");
             }
@@ -378,7 +398,7 @@ class AuthServices {
                 this.logger.instance.warn(`[AuthServices] Verify reset OTP attempt with non-existent identifier: ${email || phone_number}`);
                 throw new custom_errors_1.BadRequestError("Invalid credentials");
             }
-            const storedToken = await this.authRepository.getResetToken(user.email);
+            const storedToken = await this.authRepository.getResetToken(user.email || user.id);
             if (storedToken !== token) {
                 throw new custom_errors_1.BadRequestError("Invalid or expired OTP code");
             }
@@ -413,6 +433,113 @@ class AuthServices {
                 throw error;
             throw new custom_errors_1.InternalServerError("Failed to update password");
         }
+    }
+    async getUserById(id) {
+        const user = await this.authRepository.findById(id);
+        if (!user) {
+            throw new custom_errors_1.AppError("Utilisateur introuvable", 404);
+        }
+        const { password_hash, otp_code, ...publicUser } = user;
+        return publicUser;
+    }
+    async completeOnboarding(dto) {
+        try {
+            await this.authRepository.completeOnboarding(dto);
+            this.logger.instance.info(`[AuthServices] Onboarding completed for User ID: ${dto.userId}`);
+        }
+        catch (error) {
+            if (error.statusCode)
+                throw error;
+            throw new custom_errors_1.InternalServerError("Failed to complete onboarding");
+        }
+    }
+    async getAllIndustries() {
+        try {
+            return await this.authRepository.getAllIndustries();
+        }
+        catch (error) {
+            throw new custom_errors_1.InternalServerError("Failed to fetch industries");
+        }
+    }
+    async getAllCountries() {
+        try {
+            return await this.authRepository.getAllCountries();
+        }
+        catch (error) {
+            throw new custom_errors_1.InternalServerError("Failed to fetch countries");
+        }
+    }
+    async getJobCatalog() {
+        try {
+            return await this.authRepository.getJobCatalog();
+        }
+        catch (error) {
+            throw new custom_errors_1.InternalServerError("Failed to fetch job catalog");
+        }
+    }
+    async getAllJobTypes() {
+        try {
+            return await this.authRepository.getAllJobTypes();
+        }
+        catch (error) {
+            throw new custom_errors_1.InternalServerError("Failed to fetch job types");
+        }
+    }
+    // Two-Factor Authentication (2FA)
+    async generate2FASecret(userId) {
+        const user = await this.authRepository.findById(userId);
+        if (!user)
+            throw new custom_errors_1.BadRequestError("User not found");
+        const secret = (0, otplib_1.generateSecret)();
+        const otpauthUrl = (0, otplib_1.generateURI)({
+            issuer: 'WorkNet',
+            label: user.email,
+            secret
+        });
+        return { secret, otpauthUrl };
+    }
+    async verifyAndEnable2FA(userId, secret, token) {
+        const result = await (0, otplib_1.verify)({ token, secret });
+        if (!result.valid)
+            throw new custom_errors_1.BadRequestError("Code de vérification invalide");
+        // Generate recovery codes
+        const recoveryCodes = Array.from({ length: 8 }, () => (0, node_crypto_1.randomInt)(100000, 999999).toString());
+        await this.authRepository.updateTwoFactorSecret(userId, secret, recoveryCodes);
+        await this.authRepository.updateTwoFactorStatus(userId, true);
+        return recoveryCodes;
+    }
+    async disable2FA(userId, password) {
+        const user = await this.authRepository.findById(userId);
+        if (!user)
+            throw new custom_errors_1.BadRequestError("User not found");
+        if (password) {
+            const isPasswordValid = await this.passwordService.comparePassword(password, user.password_hash);
+            if (!isPasswordValid)
+                throw new custom_errors_1.BadRequestError("Mot de passe invalide");
+        }
+        await this.authRepository.updateTwoFactorStatus(userId, false);
+    }
+    async verify2FALogin(userId, token) {
+        const user = await this.authRepository.findById(userId);
+        if (!user || !user.two_factor_enabled || !user.two_factor_secret) {
+            throw new custom_errors_1.BadRequestError("2FA non activée pour cet utilisateur");
+        }
+        const result = await (0, otplib_1.verify)({ token, secret: user.two_factor_secret });
+        if (!result.valid) {
+            throw new custom_errors_1.BadRequestError("Code 2FA invalide");
+        }
+        const tokenPayload = {
+            id: user.id,
+            full_name: user.full_name,
+            email: user.email,
+            phone_number: user.phone_number,
+            role: this.getPrimaryRole(user.roles)
+        };
+        const accessToken = this.token.generateAccessToken(tokenPayload);
+        const refreshToken = this.token.generateRefreshToken({ id: user.id });
+        await this.authRepository.saveRefreshToken(user.id, refreshToken);
+        const { password_hash, otp_code, two_factor_secret, two_factor_recovery_codes, ...publicUser } = user;
+        return { accessToken, refreshToken, user: publicUser };
     }
 }
 exports.AuthServices = AuthServices;

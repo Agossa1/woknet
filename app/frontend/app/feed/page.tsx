@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { ProfileSidebar, SuggestionsSidebar } from "@/src/components/layout";
 import PostCard from "@/src/components/feed/post-card";
 import CreatePost from "@/src/components/feed/create-post";
@@ -50,11 +50,12 @@ export default function FeedPage() {
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const dispatch = useAppDispatch();
-  
+  const observerTarget = useRef<HTMLDivElement>(null);
+
   const authUser = useAppSelector(selectAuthUser);
   const profileUser = useAppSelector(selectProfileUser);
-  
-  const { feed, loading, error } = useAppSelector((state: any) => state.posts);
+
+  const { feed, loading, error, feedPage, hasMoreFeed } = useAppSelector((state: any) => state.posts);
 
   const sortedAndDedupedFeed = useMemo(() => {
     if (!feed || feed.length === 0) return [];
@@ -65,6 +66,11 @@ export default function FeedPage() {
     // On préserve l'ordre fourni par le backend / Redux
     // et on retire simplement les doublons par id / item_id / unique_id.
     for (const item of feed) {
+      if (item.content_type === "RECOMMENDATION_PROFILES" || item.content_type === "RECOMMENDATION_JOBS") {
+        deduped.push(item);
+        continue;
+      }
+
       const id = (item as any).id ?? (item as any).item_id ?? (item as any).unique_id;
       if (id && seen.has(id)) continue;
       if (id) seen.add(id);
@@ -99,7 +105,7 @@ export default function FeedPage() {
 
         const newItems = items.filter((item: any) => {
           const id = item.id ?? item.item_id ?? item.unique_id;
-          if (!id) return false;
+          if (!id) return false; // Filter out if no ID
           return !previousIds.has(id);
         });
 
@@ -115,6 +121,24 @@ export default function FeedPage() {
   useEffect(() => {
     dispatch(fetchPowerFeedThunk({ page: 1 } as any));
   }, [dispatch]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && hasMoreFeed) {
+          dispatch(fetchPowerFeedThunk({ page: feedPage + 1 } as any));
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => observer.disconnect();
+  }, [loading, hasMoreFeed, feedPage, dispatch]);
 
   return (
     <div className="w-full bg-gray-50 dark:bg-black min-h-screen">
@@ -156,7 +180,12 @@ export default function FeedPage() {
 
           {loading && feed?.length === 0 ? (
             <div className="flex justify-center py-10">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary dark:border-white"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary dark:border-white" />
+            </div>
+          ) : diversifiedFeed.length === 0 ? (
+            <div className="rounded-lg border border-neutral-200 dark:border-neutral-800 bg-white dark:bg-neutral-900 p-8 text-center shadow-sm">
+              <p className="text-neutral-500 dark:text-neutral-400 font-medium">Aucun post dans votre fil pour le moment.</p>
+              <p className="text-sm text-neutral-400 dark:text-neutral-500 mt-1">Actualisez le flux ou publiez le premier post.</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -186,6 +215,20 @@ export default function FeedPage() {
                   </div>
                 );
               })}
+
+              {hasMoreFeed && (
+                <div ref={observerTarget} className="flex justify-center py-6">
+                  {loading && (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary dark:border-white" />
+                  )}
+                </div>
+              )}
+
+              {!hasMoreFeed && diversifiedFeed.length > 0 && (
+                <div className="text-center py-8 text-neutral-500 text-sm">
+                  Vous avez tout vu ! 🚀
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -193,7 +236,7 @@ export default function FeedPage() {
         {/* Sidebar Droite */}
         <div className="hidden lg:block lg:col-span-3 space-y-4">
           <JobRecommendationsCard />
-          
+
           <SuggestionsSidebar />
         </div>
       </div>

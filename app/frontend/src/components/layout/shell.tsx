@@ -30,11 +30,9 @@ export function Shell({ children }: { children: React.ReactNode }) {
         }
     }, [isAuthenticated, user, isOnboardingPath, isAuthPath, router]);
 
-    // Hide shell on auth paths, onboarding, landing page, OR companies/jobs/workspaces pages (standalone mode)
+    // Hide shell sur les pages publiques (auth, onboarding, landing) et sur les pages entreprises en mode standalone
     const isCompaniesPath = pathname?.startsWith('/companies');
-    const isJobsPath = pathname?.startsWith('/jobs');
-    const isWorkspacesPath = pathname?.startsWith('/workspaces');
-    const showShell = isAuthenticated && !isAuthPath && !isOnboardingPath && !isCompaniesPath && !isJobsPath && !isWorkspacesPath && (!isRoot || isAuthenticated);
+    const showShell = isAuthenticated && !isAuthPath && !isOnboardingPath && !isCompaniesPath && (!isRoot || isAuthenticated);
 
     if (isLoading) {
         return (
@@ -49,7 +47,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
     }
 
     return (
-        <div className="flex h-screen overflow-hidden bg-white dark:bg-gray-900 transition-colors duration-200">
+        <div className="flex h-screen overflow-hidden bg-[#F4F2EE] dark:bg-black text-neutral-800 dark:text-neutral-100 transition-colors duration-200">
             {/* Sidebar (Fixed Left) */}
             <AppSidebar />
 

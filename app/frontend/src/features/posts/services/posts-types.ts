@@ -36,6 +36,7 @@ export interface Post {
     display_name?: string;
     avatar_url?: string;
     headline?: string;
+    industry_label?: string;
     company_id?: string;
     company_size?: string;
     company_type?: string;
@@ -106,6 +107,8 @@ export interface GetPostLikesResponse {
 
 export interface PostsState {
     feed: Post[];
+    feedPage: number;
+    hasMoreFeed: boolean;
     profilePosts: Record<string, Post[]>;
     companyPosts: Record<string, Post[]>;
     savedPosts: Post[];

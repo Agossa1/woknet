@@ -1,6 +1,7 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { User } from "./authTypes";
 import { forgotPasswordThunk, initializeAuthThunk, loginThunk, logoutThunk, registerThunk, resendCodeOtpThunk, resetPasswordThunk, updatePasswordThunk, verifyAccountThunk, verifyOtpPasswordResetThunk, verifyResetTokenThunk, completeOnboardingThunk, verify2FAThunk } from "./authThunks";
+import { becomeInstructorThunk } from "../../learnings/services/learnings-thunks";
 
 
 // 1. Définition de l'état initial et du type de l'état
@@ -186,6 +187,12 @@ const authSlice = createSlice({
             .addCase(verify2FAThunk.rejected, (state, action: any) => {
                 state.isLoading = false;
                 state.error = action.payload || "Échec de la vérification 2FA";
+            })
+            // =================== BECOME INSTRUCTOR ===================
+            .addCase(becomeInstructorThunk.fulfilled, (state) => {
+                if (state.user) {
+                    state.user.is_instructor = true;
+                }
             })
     }
 })

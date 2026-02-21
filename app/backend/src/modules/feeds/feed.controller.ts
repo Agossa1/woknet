@@ -1,32 +1,38 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
+import { SecureRequest } from '../../infra/middleware/auth.middleware';
 import { FeedService } from './feed.services';
 
 export class FeedController {
     constructor(private feedService: FeedService) { }
 
-    async handle(req: Request, res: Response) {
+    async handle(req: SecureRequest, res: Response) {
         try {
             const userId = req.user?.id;
             
             if (!userId) {
+                console.warn(`[FeedController] Unauthenticated request to /feed`);
                 return res.status(401).json({ 
                     success: false, 
                     error: "User not authenticated" 
                 });
             }
 
+            console.log(`[FeedController] Fetching feed for user ${userId}, page=${req.query.page || 1}`);
+
             // Si l'utilisateur est en "cold start" (aucune interaction encore enregistrée),
             // on lui propose un feed initial basé sur son secteur d'activité.
             const isColdStart = await this.feedService.isColdStartUser(userId);
             if (isColdStart) {
+                console.log(`[FeedController] User ${userId} is in cold start, using cold-start feed`);
                 const result = await this.feedService.getColdStartFeed(userId);
+                console.log(`[FeedController] Cold-start feed returned ${result.items?.length || 0} items`);
                 return res.status(200).json({
                     success: true,
-                    data: result.items,
+                    data: result.items || [],
                     metadata: {
                         page: 1,
-                        pageSize: result.items.length,
-                        hasMore: result.hasMore,
+                        pageSize: result.items?.length || 0,
+                        hasMore: result.hasMore || false,
                         method: 'cold-start-industry',
                         serverTime: new Date().toISOString(),
                     }
@@ -45,14 +51,16 @@ export class FeedController {
 
                 const limit = Math.min(parseInt(req.query.limit as string, 10) || 15, 100);
                 
+                console.log(`[FeedController] Using cursor-based feed, limit=${limit}`);
                 const result = await this.feedService.getPowerFeedWithCursor(userId, limit, cursor);
+                console.log(`[FeedController] Cursor feed returned ${result.items?.length || 0} items`);
 
                 return res.status(200).json({
                     success: true,
-                    data: result.items,
+                    data: result.items || [],
                     metadata: {
-                        pageSize: result.items.length,
-                        hasMore: result.hasMore,
+                        pageSize: result.items?.length || 0,
+                        hasMore: result.hasMore || false,
                         nextCursor: result.nextCursor,
                         personalization: result.cursor_info?.personalization,
                         method: 'cursor-based',
@@ -63,15 +71,17 @@ export class FeedController {
                 // Mode page-based (ancien, pour compatibilité)
                 const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
 
+                console.log(`[FeedController] Using page-based feed, page=${page}`);
                 const result = await this.feedService.getPowerFeed(userId, page);
+                console.log(`[FeedController] Page feed returned ${result.items?.length || 0} items`);
 
                 return res.status(200).json({
                     success: true,
-                    data: result.items,
+                    data: result.items || [],
                     metadata: {
                         page,
-                        pageSize: result.items.length,
-                        hasMore: result.hasMore,
+                        pageSize: result.items?.length || 0,
+                        hasMore: result.hasMore || false,
                         method: 'offset-based',
                         serverTime: new Date().toISOString(),
                     }
@@ -79,7 +89,12 @@ export class FeedController {
             }
 
         } catch (error: any) {
-            console.error(`[FeedController] Error:`, error);
+            console.error(`[FeedController] Error:`, {
+                message: error.message,
+                stack: error.stack,
+                code: error.code,
+                userId: req.user?.id
+            });
 
             return res.status(error.status || 500).json({ 
                 success: false,

@@ -217,12 +217,23 @@ export default function PostCard({ post }: PostCardProps) {
                 </div>
             </div>
 
-            {/* Ligne du bas : Headline ou Infos Entreprise */}
-            <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-1 mt-0.5">
-                {isCompanyPost
-                    ? `${post.company_type || "Entreprise"} • ${post.company_size ? `${post.company_size} employés` : "Taille inconnue"}`
-                    : post.headline}
+          {/* Ligne du bas : Headline ou Infos Entreprise + Domaine d'activités */}
+<div className="mt-0.5 flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+    <p className="line-clamp-1">
+        {isCompanyPost
+            ? `${post.company_type || "Entreprise"} • ${post.company_size ? `${post.company_size} employés` : "Taille inconnue"}`
+            : post.headline}
+    </p>
+
+    {!isCompanyPost && (
+        <>
+            <span className="text-gray-300 dark:text-gray-600">•</span>
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 line-clamp-1 shrink-0">
+                {post.industry_label ?? (post as any).industryLabel ?? "Secteur non renseigné"}
             </p>
+        </>
+    )}
+</div>
         </div>
     </div>
 
